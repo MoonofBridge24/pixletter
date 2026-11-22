@@ -76,6 +76,8 @@ jobs:
         run: npx wrangler deploy --config=apps/api/wrangler.toml
 
       - name: Build Dashboard
+        env: 
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: pnpm --filter @pixletter/dashboard build
 
       - name: Create Pages Project
