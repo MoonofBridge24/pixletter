@@ -6,12 +6,13 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pixletter-db"
-database_id = "1f8e0193-7069-4c83-a04c-252a30585187"
+database_id = "1f8e0193-7069-4c83-a04c-252a30585187" # 请自行改为你的db_id
 
 # 環境変数（公開しても安全なもの）
 [vars]
 HOSTING_MODE = "self"  # Phase 2: マルチテナント認証有効
-ALLOWED_ORIGINS = "https://pixletter.mb24.cc.cd,https://pixletter-dashboard-5fe.pages.dev"
+ALLOWED_ORIGINS = "https://pixletter.mb24.cc.cd,https://pixletter-dashboard-5fe.pages.dev" # 请自行改为你自己的域名
+ALLOW_SIGNUP = "false"
 
 # Secrets（wrangler secret put で設定）:
 #   - SENTRY_DSN

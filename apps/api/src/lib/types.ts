@@ -5,6 +5,7 @@
 export interface Env {
   DB: D1Database;
   HOSTING_MODE: string; // "self" | "hosted"
+  ALLOW_SIGNUP?: string;
   API_KEY?: string;
   SENTRY_DSN?: string;
   SLACK_WEBHOOK_URL?: string;
