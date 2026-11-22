@@ -1,7 +1,7 @@
 # FR-P2-21: "Deploy to Cloudflare" ワンクリックデプロイ
 # Fork したユーザーが GitHub Actions Secrets を設定するだけでデプロイできる。
 #
-# 単一の Cloudflare Pages インスタンス（pixletter-dashboard）が
+# 単一の Cloudflare Pages インスタンス（pixletter）が
 # ダッシュボードの静的ファイルと API (_worker.js) の両方を配信する。
 # 別途 Workers デプロイは行わない。
 #
@@ -79,12 +79,15 @@ jobs:
       - name: Build Pages app (Dashboard + API worker)
         run: pnpm --filter @pixletter/dashboard build
 
+      # Create the project only if missing. `wrangler pages deploy` reads
+      # `name` from apps/dashboard/wrangler.toml, so keep all three in sync:
+      # config name, this create command, and the --project-name in docs.
       - name: Create Pages Project
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npx wrangler pages project create pixletter-dashboard --production-branch=main || true
+          npx wrangler pages project create pixletter --production-branch=main || true
 
       # wrangler.toml in apps/dashboard supplies D1/vars; _worker.js inside
       # dist supplies all dynamic routes. One deployment, one instance.
@@ -93,4 +96,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         working-directory: apps/dashboard
-        run: npx wrangler pages deploy dist --branch=main
+        run: npx wrangler pages deploy dist --branch=main --project-name=pixletter

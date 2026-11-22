@@ -11,7 +11,7 @@
 - User Type: **External**
 - App name: `pixletter`
 - User support email: your email address
-- Authorized domains: your Pages domain (e.g., `pixletter-dashboard.pages.dev`)
+- Authorized domains: your Pages domain (e.g., `pixletter.pages.dev`)
 - Scopes: `email`, `profile`, `openid`
 - Test users: add your Gmail address (only test users can sign in before verification)
 
@@ -26,8 +26,8 @@
 ## 4. Set Secrets on the Pages Project
 
 ```bash
-echo "<YOUR_CLIENT_ID>" | npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter-dashboard
-echo "<YOUR_CLIENT_SECRET>" | npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter-dashboard
+echo "<YOUR_CLIENT_ID>" | npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter
+echo "<YOUR_CLIENT_SECRET>" | npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter
 
 pnpm --filter @pixletter/dashboard build
 cd apps/dashboard && npx wrangler pages deploy dist --branch=main

@@ -80,11 +80,11 @@ npx wrangler pages deploy dist --branch=main
 Set secrets on the **Pages project** (not as a Worker):
 
 ```bash
-npx wrangler pages secret put BETTER_AUTH_SECRET --project-name=pixletter-dashboard
-npx wrangler pages secret put BETTER_AUTH_URL --project-name=pixletter-dashboard
+npx wrangler pages secret put BETTER_AUTH_SECRET --project-name=pixletter
+npx wrangler pages secret put BETTER_AUTH_URL --project-name=pixletter
 # Optional: Google OAuth
-npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter-dashboard
-npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter-dashboard
+npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter
+npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter
 ```
 
 ### Hosted Mode (multi-tenant)
@@ -126,7 +126,7 @@ pnpm dev:pages
 
 ```bash
 # Same origin as the dashboard — no workers.dev URL needed
-curl https://pixletter-dashboard.pages.dev/health
+curl https://pixletter.pages.dev/health
 
 # Expected response:
 # {"status":"ok","version":"0.3.0","mode":"hosted"}

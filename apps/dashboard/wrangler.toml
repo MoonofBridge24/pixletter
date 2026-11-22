@@ -24,7 +24,3 @@ database_id = "1f8e0193-7069-4c83-a04c-252a30585187" # 请自行改为你的 db_
 HOSTING_MODE = "hosted"  # Phase 2: multi-tenant auth enabled
 ALLOWED_ORIGINS = "https://pixletter.pages.dev,https://pixletter.mb24.cc.cd" # 请自行改为你自己的域名
 ALLOW_SIGNUP = "false"
-
-[observability]
-enabled = true
-head_sampling_rate = 1.0
