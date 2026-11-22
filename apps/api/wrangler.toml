@@ -16,7 +16,7 @@ ALLOW_SIGNUP = "false"
 
 # Secrets（wrangler secret put で設定）:
 #   - SENTRY_DSN
-#   - SLACK_WEBHOOK_URL (optional)
+#   - SERVERCHAN_SENDKEY (optional, 全ユーザー共通の Server酱³ SendKey)
 #   - PIXEL_DOMAIN (例: "pixletter-api.kame-lift.workers.dev")
 
 # レート制限（Phase 2 で有効化）

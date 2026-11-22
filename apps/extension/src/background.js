@@ -38,10 +38,16 @@ async function handleTrackEmail(payload) {
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
+  // SendKey も一緒に送る（設定画面からの同期が失敗していても追踪時に補う）
+  const body = { ...payload };
+  if (config.serverchanSendkey) {
+    body.sendkey = config.serverchanSendkey;
+  }
+
   const response = await fetch(`${config.apiUrl}/api/emails`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

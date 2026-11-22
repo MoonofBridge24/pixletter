@@ -161,8 +161,16 @@ Set these as **Environment variables** in the Pages project dashboard
 | `HOSTING_MODE` | No | `self` (default) or `hosted` |
 | `ALLOW_SIGNUP` | No | Set to `true` to allow new signups (fail-closed) |
 | `ALLOWED_ORIGINS` | No | Comma-separated allowed CORS origins (for the Chrome extension) |
-| `SLACK_WEBHOOK_URL` | No | Slack webhook for open notifications |
 | `PIXEL_DOMAIN` | No | Custom domain for pixel URLs |
+
+Open notifications use **Server酱³** ([sc3.ft07.com](https://sc3.ft07.com)),
+not the older Server酱 Turbo (sct.ftqq.com). Get a SendKey from that site —
+it has the form `sctp{uid}t...`. Each user can paste it into the Chrome
+extension settings (a full SendKey-page URL also works); it is saved on the
+backend and used for that user's open pushes. Optionally set
+`SERVERCHAN_SENDKEY` as a project secret for a shared fallback key.
+Opens within 30 seconds of email creation are ignored (client/preview
+prefetch protection), and pushes are throttled to 1/hour per email.
 
 Secrets go on the **Pages project** (not a Worker). Generate a secret and set
 each one — if `BETTER_AUTH_SECRET` is missing, **every `/api/auth/*` request
@@ -181,6 +189,8 @@ npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter
 npx wrangler pages secret put STRIPE_SECRET_KEY --project-name=pixletter
 npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name=pixletter
 npx wrangler pages secret put STRIPE_PRO_PRICE_ID --project-name=pixletter
+# Optional: shared Server酱³ SendKey (individual keys set in the extension take priority)
+npx wrangler pages secret put SERVERCHAN_SENDKEY --project-name=pixletter
 ```
 
 ### Hosted Mode (multi-tenant)

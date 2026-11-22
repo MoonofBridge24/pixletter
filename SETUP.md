@@ -250,8 +250,8 @@ CLOUDFLARE_D1_TOKEN=
 BETTER_AUTH_SECRET=
 BETTER_AUTH_URL=https://pixletter-dashboard.pages.dev
 
-# Notifications (optional)
-SLACK_WEBHOOK_URL=
+# Notifications (optional) — Server酱³ SendKey from https://sc3.ft07.com (fallback for all users)
+SERVERCHAN_SENDKEY=
 
 # Observability
 SENTRY_DSN=

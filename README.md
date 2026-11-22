@@ -76,7 +76,7 @@ Built in one week as a solo PM. 29 tests, TypeScript strict mode, CI green. The 
 - Track ON/OFF toggle button in Gmail Compose
 - Auto-injects tracking pixel + rewrites URLs on send
 - ✓ (unread) / ✓✓ (read) status icons in Sent folder
-- Settings popup (API URL, API Key, Slack Webhook)
+- Settings popup (API URL, API Key, Server酱³ SendKey)
 
 ![Gmail Compose with tracking](docs/screenshots/08-gmail-compose.png)
 
@@ -97,7 +97,8 @@ Built in one week as a solo PM. 29 tests, TypeScript strict mode, CI green. The 
 ### Observability & Security
 - X-Request-ID / X-Response-Time headers
 - Rate limiting (100 req/min per IP)
-- Slack webhook open notifications (throttled to 1/hour per email)
+- Server酱³ push on email open ([sc3.ft07.com](https://sc3.ft07.com), per-user SendKey from the
+  extension, throttled to 1/hour per email; opens within 30s of creation are ignored)
 - CORS origin restriction (`ALLOWED_ORIGINS` env var)
 - Cloudflare Workers Analytics (enabled in wrangler.toml)
 
@@ -271,7 +272,7 @@ These are not bugs — they are features that protect recipient autonomy.
 These are not just policies — they are **enforced in code**:
 
 - **Opt-out link in every email**: The API response always includes an `optoutUrl` and `optoutHtml` footer. In hosted mode, injection is [forced regardless of user settings](apps/api/src/routes/emails.ts#L176). Recipients can stop tracking with one click.
-- **Notification rate limiting**: Slack open notifications are [suppressed within a 1-hour window](apps/api/src/lib/notify.ts#L17) per email to prevent notification spam.
+- **Notification rate limiting**: Server酱³ open pushes are suppressed within a 1-hour window per email, and opens within 30 seconds of email creation are ignored to avoid double "read" events from mail clients.
 - **Auto-ban on abuse**: Accounts receiving [more than 10 opt-outs are automatically suspended](apps/api/src/lib/abuse.ts#L6). No manual intervention required.
 
 ### Data Storage
@@ -311,7 +312,7 @@ sequenceDiagram
     participant A as API (Cloudflare Workers)
     participant D as D1 (SQLite)
     participant R as Recipient (Email Client)
-    participant SL as Slack (optional)
+    participant SL as Server酱³ (optional)
 
     S->>A: POST /api/emails {subject, recipient, urls}
     A->>D: INSERT emails, links
@@ -319,8 +320,9 @@ sequenceDiagram
     Note over S: Injects pixel + rewrites URLs in email body
 
     R->>A: GET /i/{trackingId}.gif (open)
+    Note over A: Ignore if <30s after creation
     A->>D: INSERT opens {ipHash, userAgent}
-    A-->>SL: Webhook (if configured, rate-limited 1/hour)
+    A-->>SL: Push via SendKey (if configured, 1/hour per email)
     A-->>R: 1×1 transparent GIF
 
     R->>A: GET /r/{linkId} (click)

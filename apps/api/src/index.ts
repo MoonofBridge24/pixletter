@@ -14,6 +14,7 @@ import privacyRoutes from './routes/privacy';
 import gdprRoutes from './routes/gdpr';
 import billingRoutes, { handleStripeWebhook } from './routes/billing';
 import termsRoutes from './routes/terms';
+import settingsRoutes from './routes/settings';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -152,6 +153,8 @@ app.route('/api/emails', emailRoutes);
 app.route('/api/keys', apikeyRoutes);
 app.use('/api/account/*', tenantMiddleware);
 app.route('/api/account', gdprRoutes);
+app.use('/api/settings/*', tenantMiddleware);
+app.route('/api/settings', settingsRoutes);
 app.use('/api/billing/*', tenantMiddleware);
 app.route('/api/billing', billingRoutes);
 

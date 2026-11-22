@@ -3,11 +3,18 @@ import { eq } from 'drizzle-orm';
 import { emails, opens, links, clicks, optouts } from '@pixletter/db';
 import { createDb } from '../lib/db';
 import { hashIp } from '../lib/hash';
-import { notifySlack } from '../lib/notify';
+import { notifyOpen } from '../lib/notify';
 import { TRANSPARENT_GIF } from '../lib/pixel';
 import type { Env } from '../lib/types';
 
 const app = new Hono<{ Bindings: Env }>();
+
+/**
+ * メール作成直後のピクセル取得は「開封」と数えない（30秒の猶予）。
+ * Gmail の画像プロキシやメールクライアントのプレビューが、
+ * 送信直後にピクセルを 2 回取得して二重既読になるのを防ぐ。
+ */
+export const OPEN_GRACE_MS = 30_000;
 
 /**
  * ピクセル開封ハンドラ（共通ロジック）。
@@ -19,12 +26,25 @@ async function handlePixel(c: any) {
   const db = createDb(c.env.DB);
 
   const email = await db
-    .select({ id: emails.id, tenantId: emails.tenantId })
+    .select({
+      id: emails.id,
+      tenantId: emails.tenantId,
+      createdAt: emails.createdAt,
+    })
     .from(emails)
     .where(eq(emails.trackingId, trackingId))
     .get();
 
   if (email) {
+    const createdAt = email.createdAt instanceof Date
+      ? email.createdAt.getTime()
+      : Number(email.createdAt);
+
+    // 作成から30秒以内のアクセスは既読にしない（推送もしない）
+    if (Number.isFinite(createdAt) && Date.now() - createdAt < OPEN_GRACE_MS) {
+      return gifResponse();
+    }
+
     const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown';
     const userAgent = c.req.header('User-Agent') ?? '';
     const isGmailProxy = userAgent.includes('GoogleImageProxy');
@@ -38,11 +58,15 @@ async function handlePixel(c: any) {
           ipHash,
           isGmailProxy,
         });
-        await notifySlack(db, email.id, c.env.SLACK_WEBHOOK_URL);
+        await notifyOpen(db, email.id, c.env.SERVERCHAN_SENDKEY);
       }),
     );
   }
 
+  return gifResponse();
+}
+
+function gifResponse() {
   return new Response(TRANSPARENT_GIF, {
     status: 200,
     headers: {

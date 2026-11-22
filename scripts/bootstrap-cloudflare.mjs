@@ -37,7 +37,7 @@
  *   D1_BINDING              default "DB"
  *   Secret values, if --with-secrets: BETTER_AUTH_SECRET, BETTER_AUTH_URL,
  *     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, STRIPE_SECRET_KEY,
- *     STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, SLACK_WEBHOOK_URL
+ *     STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, SERVERCHAN_SENDKEY
  */
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -268,7 +268,7 @@ const SECRET_SPECS = [
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
   'STRIPE_PRO_PRICE_ID',
-  'SLACK_WEBHOOK_URL',
+  'SERVERCHAN_SENDKEY',
 ];
 
 async function fillMissingSecrets() {

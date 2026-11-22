@@ -4,15 +4,20 @@
  */
 
 const DEFAULT_CONFIG = {
-  apiUrl: 'http://localhost:8787',
+  apiUrl: 'https://pixletter.pages.dev',
   apiKey: '',
   trackByDefault: true,
   showOptoutFooter: false,
-  slackWebhookUrl: '',
+  serverchanSendkey: '',
 };
 
 export async function getConfig() {
   const result = await chrome.storage.sync.get(DEFAULT_CONFIG);
+  // 旧 Slack 設定は不要になったので掃除する
+  if ('slackWebhookUrl' in result) {
+    await chrome.storage.sync.remove('slackWebhookUrl');
+    delete result.slackWebhookUrl;
+  }
   return /** @type {typeof DEFAULT_CONFIG} */ (result);
 }
 

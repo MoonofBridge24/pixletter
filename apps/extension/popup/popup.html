@@ -109,6 +109,13 @@
     }
     .status--ok { color: #2e7d32; }
     .status--err { color: #c62828; }
+    .hint {
+      font-size: 10px;
+      color: #80868b;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    .hint a { color: #1a73e8; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -125,8 +132,9 @@
   </div>
 
   <div class="field">
-    <label>Slack Webhook URL (optional)</label>
-    <input type="url" id="slackWebhookUrl" placeholder="https://hooks.slack.com/...">
+    <label>Server酱³ SendKey (optional)</label>
+    <input type="text" id="serverchanSendkey" placeholder="sctp123456t..." autocomplete="off" spellcheck="false">
+    <div class="hint">已读时推送。在 <a href="https://sc3.ft07.com" target="_blank" rel="noopener">sc3.ft07.com</a> 登录后复制 SendKey（也可直接粘贴 SendKey 页面给出的完整链接）。</div>
   </div>
 
   <div class="toggle-field">

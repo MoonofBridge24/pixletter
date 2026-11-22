@@ -68,7 +68,8 @@ export const users = sqliteTable(
     }),
     oauthId: text('oauth_id'),
 
-    slackWebhookUrl: text('slack_webhook_url'),
+    // Server酱³ SendKey（Chrome 拡張から設定、開封通知に使用）
+    serverchanSendkey: text('serverchan_sendkey'),
 
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`(unixepoch())`)

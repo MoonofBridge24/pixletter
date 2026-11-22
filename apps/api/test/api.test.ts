@@ -9,7 +9,7 @@ import app from '../src/index';
 async function applyMigrations(db: D1Database) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY, name TEXT, plan TEXT NOT NULL DEFAULT 'self', monthly_email_limit INTEGER NOT NULL DEFAULT 500, monthly_email_count INTEGER NOT NULL DEFAULT 0, reset_at INTEGER NOT NULL DEFAULT (unixepoch() + 2592000), is_suspended INTEGER DEFAULT 0, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
-    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email TEXT NOT NULL UNIQUE, name TEXT, oauth_provider TEXT, oauth_id TEXT, slack_webhook_url TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()), updated_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
+    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email TEXT NOT NULL UNIQUE, name TEXT, oauth_provider TEXT, oauth_id TEXT, serverchan_sendkey TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()), updated_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL, tracking_id TEXT NOT NULL UNIQUE, subject TEXT, recipient TEXT NOT NULL, recipient_name TEXT, gmail_message_id TEXT, thread_id TEXT, tag TEXT, sent_at INTEGER NOT NULL DEFAULT (unixepoch()), created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS opens (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, user_agent TEXT, ip_hash TEXT, is_gmail_proxy INTEGER DEFAULT 0, opened_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, tracking_id TEXT NOT NULL UNIQUE, original_url TEXT NOT NULL, label TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
@@ -34,6 +34,9 @@ async function createTestEmail(
   recipient = 'test@example.com',
   opts: { subject?: string; urls?: Array<{ url: string; label?: string }> } = {},
 ) {
+  // 24h 新規アカウント制限（10通）で後続テストが 429 にならないようリセット
+  await env.DB.prepare(`UPDATE tenants SET monthly_email_count = 0 WHERE id = 'self'`).run();
+
   const res = await request('/api/emails', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -160,6 +163,87 @@ describe('pixletter API', () => {
   it('GET /pixel returns 200 even for unknown tracking ID', async () => {
     const res = await request('/pixel/nonexistent.gif');
     expect(res.status).toBe(200);
+  });
+
+  it('does not count opens within 30s of email creation', async () => {
+    const email = await createTestEmail('grace-new@example.com');
+    await request(`/pixel/${email.trackingId}.gif`);
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(row?.n).toBe(0);
+  });
+
+  it('counts opens after the 30s grace period', async () => {
+    const email = await createTestEmail('grace-old@example.com');
+    // 61 秒前に作成されたことにする
+    await env.DB.prepare(`UPDATE emails SET created_at = unixepoch() - 61 WHERE id = ?`)
+      .bind(email.id).run();
+
+    await request(`/pixel/${email.trackingId}.gif`);
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(row?.n).toBe(1);
+  });
+
+  // Notification settings (SendKey)
+  it('POST /api/settings/notifications stores and clears SendKey', async () => {
+    const key = 'sctp123456tabcdef123456';
+    const setRes = await request('/api/settings/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sendkey: key }),
+    });
+    expect(setRes.status).toBe(200);
+
+    const row = await env.DB.prepare(
+      `SELECT serverchan_sendkey FROM users WHERE id = 'self'`
+    ).first<{ serverchan_sendkey: string | null }>();
+    expect(row?.serverchan_sendkey).toBe(key);
+
+    const getRes = await request('/api/settings/notifications');
+    const state = await getRes.json<{ configured: boolean; source: string }>();
+    expect(state.configured).toBe(true);
+    expect(state.source).toBe('user');
+
+    const badRes = await request('/api/settings/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sendkey: 'https://evil.example.com' }),
+    });
+    expect(badRes.status).toBe(400);
+
+    const delRes = await request('/api/settings/notifications', { method: 'DELETE' });
+    expect(delRes.status).toBe(200);
+    const cleared = await env.DB.prepare(
+      `SELECT serverchan_sendkey FROM users WHERE id = 'self'`
+    ).first<{ serverchan_sendkey: string | null }>();
+    expect(cleared?.serverchan_sendkey).toBeNull();
+  });
+
+  it('accepts full Server酱³ SendKey URL and rejects Turbo keys', async () => {
+    const key = 'sctp654321tZyXwVu9876';
+    const urlRes = await request('/api/settings/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sendkey: `https://654321.push.ft07.com/send/${key}.send` }),
+    });
+    expect(urlRes.status).toBe(200);
+    const row = await env.DB.prepare(
+      `SELECT serverchan_sendkey FROM users WHERE id = 'self'`
+    ).first<{ serverchan_sendkey: string | null }>();
+    expect(row?.serverchan_sendkey).toBe(key);
+
+    // 旧 Server酱 Turbo のキー (sct...) は受け付けない
+    const turboRes = await request('/api/settings/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sendkey: 'sct123456tabcdef123456' }),
+    });
+    expect(turboRes.status).toBe(400);
+
+    await request('/api/settings/notifications', { method: 'DELETE' });
   });
 
   it('GET /r/:id redirects to original URL', async () => {

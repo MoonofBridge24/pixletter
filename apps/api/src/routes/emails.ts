@@ -11,6 +11,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDb } from '../lib/db';
 import { checkAutoBan } from '../lib/abuse';
+import { isValidSendkey, normalizeSendkey, saveSendkey } from '../lib/sendkey';
 import type { Env } from '../lib/types';
 
 /** Sign up 後 24h は送信上限を制限（ADR-003 §4） */
@@ -37,6 +38,8 @@ app.post('/', async (c) => {
     threadId?: string;
     tag?: string;
     urls?: Array<{ url: string; label?: string }>;
+    // Chrome 拡張の SendKey 設定を「追跡開始時」にも同期する
+    sendkey?: string;
   }>();
 
   if (!body.recipient) {
@@ -45,6 +48,18 @@ app.post('/', async (c) => {
 
   const tenantId = c.get('tenantId');
   const userId = c.get('userId');
+
+  // SendKey は必須ではない。不正値は無視してメール追跡は続行する
+  if (body.sendkey !== undefined) {
+    const key = normalizeSendkey(body.sendkey);
+    if (!key || isValidSendkey(key)) {
+      try {
+        await saveSendkey(db, tenantId, userId, key || null);
+      } catch (err) {
+        console.error('Failed to save SendKey from email payload:', err);
+      }
+    }
+  }
 
   // FR-P2-02: 月間送信上限チェック（self プランは実質無制限）
   const tenant = await db

@@ -11,7 +11,8 @@ export interface Env {
   ALLOW_SIGNUP?: string; // 'true' 才开放注册；未设置或其它值均关闭（fail-closed）
   API_KEY?: string;
   SENTRY_DSN?: string;
-  SLACK_WEBHOOK_URL?: string;
+  // Server酱³ sendkey（全ユーザー共通のフォールバック。個別設定が優先）
+  SERVERCHAN_SENDKEY?: string;
   PIXEL_DOMAIN?: string;
   ALLOWED_ORIGINS?: string; // カンマ区切り。例: "https://dashboard.kame-lift.workers.dev,http://localhost:5173"
   // Phase 2: Better Auth
