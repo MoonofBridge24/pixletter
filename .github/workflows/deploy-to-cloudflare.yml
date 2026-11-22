@@ -36,7 +36,11 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          echo "Checking esbuild environment..."
+          env | grep -i ESBUILD || true
+          unset ESBUILD_BINARY_PATH
+          pnpm install --no-frozen-lockfile --force
 
       - name: Create D1 database (if not exists)
         env:
