@@ -11,7 +11,7 @@
 - User Type: **External**
 - App name: `pixletter`
 - User support email: your email address
-- Authorized domains: your Workers domain (e.g., `kame-lift.workers.dev`)
+- Authorized domains: your Pages domain (e.g., `pixletter-dashboard.pages.dev`)
 - Scopes: `email`, `profile`, `openid`
 - Test users: add your Gmail address (only test users can sign in before verification)
 
@@ -20,22 +20,24 @@
 - APIs & Services → Credentials → Create Credentials → OAuth Client ID
 - Application type: **Web application**
 - Name: `pixletter`
-- Authorized JavaScript origins: `https://<your-api>.workers.dev`
-- Authorized redirect URIs: `https://<your-api>.workers.dev/api/auth/callback/google`
+- Authorized JavaScript origins: `https://<your-dashboard>.pages.dev`
+- Authorized redirect URIs: `https://<your-dashboard>.pages.dev/api/auth/callback/google`
 
-## 4. Set Secrets in Cloudflare Workers
+## 4. Set Secrets on the Pages Project
 
 ```bash
-echo "<YOUR_CLIENT_ID>" | npx wrangler secret put GOOGLE_CLIENT_ID --config=apps/api/wrangler.toml
-echo "<YOUR_CLIENT_SECRET>" | npx wrangler secret put GOOGLE_CLIENT_SECRET --config=apps/api/wrangler.toml
-npx wrangler deploy --config=apps/api/wrangler.toml
+echo "<YOUR_CLIENT_ID>" | npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter-dashboard
+echo "<YOUR_CLIENT_SECRET>" | npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter-dashboard
+
+pnpm --filter @pixletter/dashboard build
+cd apps/dashboard && npx wrangler pages deploy dist --branch=main
 ```
 
 ## 5. Verify
 
 Open in browser:
 ```
-https://<your-api>.workers.dev/api/auth/sign-in/social?provider=google
+https://<your-dashboard>.pages.dev/api/auth/sign-in/social?provider=google
 ```
 → If you are redirected to the Google login screen, the setup is complete.
 

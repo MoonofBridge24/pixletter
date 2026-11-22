@@ -25,10 +25,13 @@
     "db:seed:self": "wrangler d1 execute pixletter-db --remote --config=apps/api/wrangler.toml --command=\"INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000); INSERT OR IGNORE INTO users (id, tenant_id, email, name) VALUES ('self', 'self', 'self@localhost', 'Self User');\"",
     "deploy:api": "pnpm --filter @pixletter/api deploy",
     "deploy:dashboard": "pnpm --filter @pixletter/dashboard deploy",
+    "build:pages": "pnpm --filter @pixletter/dashboard build",
+    "dev:pages": "pnpm --filter @pixletter/dashboard build && cd apps/dashboard && wrangler pages dev dist",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "esbuild": "^0.25.12",
     "turbo": "^2.0.0",
     "typescript": "^5.5.0",
     "wrangler": "^4.98.0"

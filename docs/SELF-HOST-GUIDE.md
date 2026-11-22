@@ -2,6 +2,11 @@
 
 Deploy pixletter on your own Cloudflare account in under 10 minutes.
 
+The API and the dashboard run on **one Cloudflare Pages instance**: the build
+output contains the static dashboard plus a generated `_worker.js` (Pages
+Functions advanced mode) that serves every API, tracking, auth and webhook
+route. No separate Workers deployment is needed.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v20+
@@ -30,29 +35,28 @@ pnpm install
 npx wrangler login
 
 # 3. Create D1 database
-npx wrangler d1 create pixletter-db --config=apps/api/wrangler.toml
-# Copy the database_id from the output and update apps/api/wrangler.toml
+npx wrangler d1 create pixletter-db --config=apps/dashboard/wrangler.toml
+# Copy the database_id from the output and update apps/dashboard/wrangler.toml
+# (and apps/api/wrangler.toml if you still use it for local API dev)
 
 # 4. Apply migrations
 npx wrangler d1 execute pixletter-db --remote \
   --file=packages/db/migrations/0000_peaceful_apocalypse.sql \
-  --config=apps/api/wrangler.toml
+  --config=apps/dashboard/wrangler.toml
 
 npx wrangler d1 execute pixletter-db --remote \
   --file=packages/db/migrations/0001_better_auth_tables.sql \
-  --config=apps/api/wrangler.toml
+  --config=apps/dashboard/wrangler.toml
 
 # 5. Seed self tenant
 npx wrangler d1 execute pixletter-db --remote \
   --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit) VALUES ('self', 'Self', 'self', 100000);" \
-  --config=apps/api/wrangler.toml
+  --config=apps/dashboard/wrangler.toml
 
-# 6. Deploy API
-npx wrangler deploy --config=apps/api/wrangler.toml
-
-# 7. Deploy Dashboard (optional)
+# 6. Build & deploy ONE Pages instance (dashboard assets + API worker)
 pnpm --filter @pixletter/dashboard build
-npx wrangler pages deploy apps/dashboard/dist --project-name=pixletter-dashboard
+cd apps/dashboard
+npx wrangler pages deploy dist --branch=main
 ```
 
 ### Option C: GitHub Actions
@@ -63,32 +67,41 @@ npx wrangler pages deploy apps/dashboard/dist --project-name=pixletter-dashboard
 
 ## Configuration
 
-### Environment Variables (wrangler.toml)
+### Environment Variables (apps/dashboard/wrangler.toml)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `HOSTING_MODE` | No | `self` (default) or `hosted` |
-| `ALLOWED_ORIGINS` | No | Comma-separated allowed CORS origins |
+| `ALLOW_SIGNUP` | No | Set to `true` to allow new signups (fail-closed) |
+| `ALLOWED_ORIGINS` | No | Comma-separated allowed CORS origins (for the Chrome extension) |
 | `SLACK_WEBHOOK_URL` | No | Slack webhook for open notifications |
 | `PIXEL_DOMAIN` | No | Custom domain for pixel URLs |
+
+Set secrets on the **Pages project** (not as a Worker):
+
+```bash
+npx wrangler pages secret put BETTER_AUTH_SECRET --project-name=pixletter-dashboard
+npx wrangler pages secret put BETTER_AUTH_URL --project-name=pixletter-dashboard
+# Optional: Google OAuth
+npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter-dashboard
+npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter-dashboard
+```
 
 ### Hosted Mode (multi-tenant)
 
 To enable multi-tenant mode with authentication:
 
 ```bash
-# Set secrets
-npx wrangler secret put BETTER_AUTH_SECRET --config=apps/api/wrangler.toml
-npx wrangler secret put BETTER_AUTH_URL --config=apps/api/wrangler.toml
-
-# Optional: Google OAuth
-npx wrangler secret put GOOGLE_CLIENT_ID --config=apps/api/wrangler.toml
-npx wrangler secret put GOOGLE_CLIENT_SECRET --config=apps/api/wrangler.toml
-
-# Update wrangler.toml
+# Update apps/dashboard/wrangler.toml
 # HOSTING_MODE = "hosted"
 # ALLOWED_ORIGINS = "https://your-dashboard.pages.dev"
+
+# Redeploy after changing vars/secrets
+cd apps/dashboard && npx wrangler pages deploy dist --branch=main
 ```
+
+> API requests from the dashboard use same-origin relative paths. Leave
+> `VITE_API_URL` unset so the browser talks to the same Pages instance.
 
 ## Chrome Extension Setup
 
@@ -98,14 +111,25 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET --config=apps/api/wrangler.toml
 4. Click the extension icon → enter your API URL and API key
 5. Compose an email in Gmail — the Track toggle appears automatically
 
+## Local Development
+
+```bash
+# Separate services (Vite on 5173 + API Worker on 8787)
+pnpm dev
+
+# Single Pages instance locally (builds dashboard + _worker.js, then serves both)
+pnpm dev:pages
+# Put secrets in apps/dashboard/.dev.vars (gitignored) before starting.
+```
+
 ## Verify Installation
 
 ```bash
-# Check API health
-curl https://your-worker.workers.dev/health
+# Same origin as the dashboard — no workers.dev URL needed
+curl https://pixletter-dashboard.pages.dev/health
 
 # Expected response:
-# {"status":"ok","version":"0.3.0","mode":"self"}
+# {"status":"ok","version":"0.3.0","mode":"hosted"}
 ```
 
 ## Updating
@@ -116,6 +140,7 @@ pnpm install
 # Apply any new migrations
 npx wrangler d1 execute pixletter-db --remote \
   --file=packages/db/migrations/<new-migration>.sql \
-  --config=apps/api/wrangler.toml
-npx wrangler deploy --config=apps/api/wrangler.toml
+  --config=apps/dashboard/wrangler.toml
+pnpm --filter @pixletter/dashboard build
+cd apps/dashboard && npx wrangler pages deploy dist --branch=main
 ```

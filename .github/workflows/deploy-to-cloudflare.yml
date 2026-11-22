@@ -1,8 +1,12 @@
 # FR-P2-21: "Deploy to Cloudflare" ワンクリックデプロイ
 # Fork したユーザーが GitHub Actions Secrets を設定するだけでデプロイできる。
 #
+# 単一の Cloudflare Pages インスタンス（pixletter-dashboard）が
+# ダッシュボードの静的ファイルと API (_worker.js) の両方を配信する。
+# 別途 Workers デプロイは行わない。
+#
 # 必要な Secrets:
-#   CLOUDFLARE_API_TOKEN  — Cloudflare API Token (Workers + D1 権限)
+#   CLOUDFLARE_API_TOKEN  — Cloudflare API Token (Pages + D1 権限)
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare Account ID
 #   D1_DATABASE_NAME      — D1 database name (default: pixletter-db)
 
@@ -22,7 +26,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy API + Dashboard
+    name: Deploy single Pages instance (Dashboard + API)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -69,15 +73,10 @@ jobs:
           npx wrangler d1 execute ${{ inputs.d1_database_name }} --remote --config=apps/api/wrangler.toml \
             --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000); INSERT OR IGNORE INTO users (id, tenant_id, email, name) VALUES ('self', 'self', 'self@localhost', 'Self User');"
 
-      - name: Deploy API to Workers
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler deploy --config=apps/api/wrangler.toml
-
-      - name: Build Dashboard
-        env: 
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      # Builds the dashboard AND bundles apps/api into dist/_worker.js.
+      # VITE_API_URL is intentionally unset: API requests use same-origin
+      # relative paths, so one Pages instance serves everything.
+      - name: Build Pages app (Dashboard + API worker)
         run: pnpm --filter @pixletter/dashboard build
 
       - name: Create Pages Project
@@ -87,8 +86,11 @@ jobs:
         run: |
           npx wrangler pages project create pixletter-dashboard --production-branch=main || true
 
-      - name: Deploy Dashboard to Pages
+      # wrangler.toml in apps/dashboard supplies D1/vars; _worker.js inside
+      # dist supplies all dynamic routes. One deployment, one instance.
+      - name: Deploy single Pages instance
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy apps/dashboard/dist --project-name=pixletter-dashboard --branch=main
+        working-directory: apps/dashboard
+        run: npx wrangler pages deploy dist --branch=main

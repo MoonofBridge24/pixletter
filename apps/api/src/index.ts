@@ -170,7 +170,28 @@ app.get('/health', (c) =>
 );
 
 // 404 ハンドラ
-app.notFound((c) => c.json({ error: 'Not found' }, 404));
+//
+//  standalone Worker: JSON 404 を返す（従来どおり）
+//  Pages advanced mode (_worker.js): 静的アセットにフォールバックする。
+//  Hono の notFound はどのルートにもマッチしなかった場合のみ呼ばれるため、
+//  /r/:id の「Link not found」など明示的な 404 はそのまま返る。
+app.notFound(async (c) => {
+  const assets = c.env?.ASSETS;
+  if (assets) {
+    const path = new URL(c.req.url).pathname;
+    // Known dynamic prefixes must stay JSON 404 even in Pages mode.
+    const isDynamicPath = /^\/(api|webhook|health|optout|privacy|terms|i|pixel|r)(\/|$)/.test(path);
+    if (!isDynamicPath) {
+      const assetRes = await assets.fetch(c.req.raw);
+      // SPA fallback: 拡張子なしのパスでアセットが無ければ index.html を返す
+      if (assetRes.status === 404 && !path.includes('.')) {
+        return assets.fetch(new Request(new URL('/index.html', c.req.url).toString()));
+      }
+      return assetRes;
+    }
+  }
+  return c.json({ error: 'Not found' }, 404);
+});
 
 // エラーハンドラ
 app.onError((err, c) => {

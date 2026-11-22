@@ -1,0 +1,30 @@
+# Cloudflare Pages — single instance for dashboard + API.
+#
+# The Pages build output (dist/) contains both the static dashboard and a
+# generated `_worker.js` (Pages Functions advanced mode). The worker runs the
+# full Hono API from apps/api/src/index.ts and falls back to `env.ASSETS` for
+# everything else. There is no separate Workers deployment.
+#
+# Secrets (set with `wrangler pages secret put <NAME>`):
+#   BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
+#   GOOGLE_CLIENT_SECRET, SLACK_WEBHOOK_URL, STRIPE_SECRET_KEY,
+#   STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID
+
+name = "pixletter"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-05-14"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pixletter-db"
+database_id = "1f8e0193-7069-4c83-a04c-252a30585187" # 请自行改为你的 db_id
+
+[vars]
+HOSTING_MODE = "hosted"  # Phase 2: multi-tenant auth enabled
+ALLOWED_ORIGINS = "https://pixletter.pages.dev,https://pixletter.mb24.cc.cd" # 请自行改为你自己的域名
+ALLOW_SIGNUP = "false"
+
+[observability]
+enabled = true
+head_sampling_rate = 1.0
