@@ -113,6 +113,8 @@ npx wrangler d1 create pixletter-db
 
 命令会输出一个 `database_id`，**记下它**，第 ④ 步绑定时要用到。数据库名字可以自定义，但后面命令里的名字要一致。
 
+> **重要：远程命令不要加 `--config`。** 带上 `--config=apps/api/wrangler.toml` 时，wrangler 会用配置里的 `database_id`（我们故意留的本地占位值）去请求 API，导致 `Invalid uuid` 错误。不加 config 时，wrangler 会按数据库名从 API 解析真实 ID。
+
 ### 2. 执行迁移
 
 对每一个迁移文件执行（当前有 `0000`、`0001`、`0002` 三个）：
@@ -121,8 +123,7 @@ npx wrangler d1 create pixletter-db
 for f in packages/db/migrations/*.sql; do
   echo "Applying $f..."
   sed 's/--> statement-breakpoint//g' "$f" > /tmp/migration.sql
-  npx wrangler d1 execute pixletter-db --remote \
-    --file=/tmp/migration.sql --config=apps/api/wrangler.toml
+  npx wrangler d1 execute pixletter-db --remote --file=/tmp/migration.sql
 done
 ```
 
@@ -130,14 +131,14 @@ done
 > ```powershell
 > Get-ChildItem packages/db/migrations/*.sql | ForEach-Object {
 >   (Get-Content $_.FullName) -replace '--> statement-breakpoint','' | Set-Content /tmp/migration.sql
->   npx wrangler d1 execute pixletter-db --remote --file=/tmp/migration.sql --config=apps/api/wrangler.toml
+>   npx wrangler d1 execute pixletter-db --remote --file=/tmp/migration.sql
 > }
 > ```
 
 ### 3. 写入初始数据（self 租户）
 
 ```bash
-npx wrangler d1 execute pixletter-db --remote --config=apps/api/wrangler.toml \
+npx wrangler d1 execute pixletter-db --remote \
   --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000); INSERT OR IGNORE INTO users (id, tenant_id, email, name) VALUES ('self', 'self', 'self@localhost', 'Self User');"
 ```
 
@@ -238,6 +239,7 @@ npx wrangler pages secret put SERVERCHAN_SENDKEY --project-name=pixletter
 
 ## 常见问题
 
+- **迁移报 `[ERROR] Invalid property: databaseId => Invalid uuid [code: 7400]`** → 远程命令带了 `--config`，wrangler 用了配置里的占位 `database_id`。去掉 `--config`，只按数据库名执行（见第 ③ 步）。
 - **`/api/auth/*` 全部 500，但 `/health` 正常** → 缺 `BETTER_AUTH_SECRET`。用 `wrangler pages secret put` 设置后重新部署。
 - **`/health` 里 `"mode":"self"` 而不是 `hosted`** → 面板里缺 `HOSTING_MODE` 变量（Production 环境）。
 - **变量/D1 绑定是灰色不能改** → 见第 ④ 步的只读说明，确保 `apps/dashboard/wrangler.toml` 没有那几个键，然后重新部署一次解锁。

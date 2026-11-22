@@ -6,7 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pixletter-db"
-database_id = "YOUR_D1_DATABASE_ID" # 请替换为你自己的 D1 数据库 ID（npx wrangler d1 create 会输出）
+# 仅供本地 wrangler dev / --local 迁移使用（合法 UUID 占位即可）。
+# 线上 --remote 命令不要带 --config，wrangler 会按 database_name 从 API 解析真实 ID，
+# 避免因这里的占位值导致 "Invalid uuid" 错误。
+database_id = "00000000-0000-0000-0000-000000000000"
 
 # 環境変数（公開しても安全なもの）
 [vars]

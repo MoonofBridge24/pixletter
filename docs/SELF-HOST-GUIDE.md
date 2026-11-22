@@ -35,23 +35,24 @@ pnpm install
 npx wrangler login
 
 # 3. Create D1 database
-npx wrangler d1 create pixletter-db --config=apps/dashboard/wrangler.toml
-# Copy the database_id from the output and update apps/dashboard/wrangler.toml
-# (and apps/api/wrangler.toml if you still use it for local API dev)
+npx wrangler d1 create pixletter-db
+# Note the database_id in the output — you need it when binding D1 to the
+# Pages project in the dashboard (step "Pages bindings"). Remote commands
+# below resolve the database by NAME, so no wrangler.toml edit is required.
 
 # 4. Apply migrations
 npx wrangler d1 execute pixletter-db --remote \
-  --file=packages/db/migrations/0000_peaceful_apocalypse.sql \
-  --config=apps/dashboard/wrangler.toml
+  --file=packages/db/migrations/0000_peaceful_apocalypse.sql
 
 npx wrangler d1 execute pixletter-db --remote \
-  --file=packages/db/migrations/0001_better_auth_tables.sql \
-  --config=apps/dashboard/wrangler.toml
+  --file=packages/db/migrations/0001_better_auth_tables.sql
+
+npx wrangler d1 execute pixletter-db --remote \
+  --file=packages/db/migrations/0002_serverchan_sendkey.sql
 
 # 5. Seed self tenant
 npx wrangler d1 execute pixletter-db --remote \
-  --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit) VALUES ('self', 'Self', 'self', 100000);" \
-  --config=apps/dashboard/wrangler.toml
+  --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000);"
 
 # 6. Build & deploy ONE Pages instance (dashboard assets + API worker)
 pnpm --filter @pixletter/dashboard build
@@ -259,8 +260,7 @@ git pull origin main
 pnpm install
 # Apply any new migrations
 npx wrangler d1 execute pixletter-db --remote \
-  --file=packages/db/migrations/<new-migration>.sql \
-  --config=apps/dashboard/wrangler.toml
+  --file=packages/db/migrations/<new-migration>.sql
 pnpm --filter @pixletter/dashboard build
 cd apps/dashboard && npx wrangler pages deploy dist --branch=main
 ```
