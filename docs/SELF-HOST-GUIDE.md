@@ -165,6 +165,8 @@ Set these as **Environment variables** in the Pages project dashboard
 | `NEW_USER_EMAIL_LIMIT` | No | Max emails in the first 24h after signup (abuse protection). Default `100`. |
 | `OPEN_GRACE_MS` | No | Ignore opens within this many ms of email creation (prefetch protection). Default `10000` (10s). |
 
+After adding or changing any variable in the dashboard, **trigger a new deployment** (re-run the "Deploy to Cloudflare" workflow or redeploy) — Pages injects vars at deploy time, so edits do not affect already-running deployments until the next one. Set them in **both** Production and Preview environments.
+
 Open notifications use **Server酱³** ([sc3.ft07.com](https://sc3.ft07.com)),
 not the older Server酱 Turbo (sct.ftqq.com). Get a SendKey from that site —
 it has the form `sctp{uid}t...`. Each user can paste it into the Chrome

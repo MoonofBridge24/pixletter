@@ -18,7 +18,10 @@ export interface Env {
   // Server酱³ sendkey（全ユーザー共通のフォールバック。個別設定が優先）
   SERVERCHAN_SENDKEY?: string;
   PIXEL_DOMAIN?: string;
-  ALLOWED_ORIGINS?: string; // カンマ区切り。例: "https://dashboard.kame-lift.workers.dev,http://localhost:5173"
+  ALLOWED_ORIGINS?: string; // カンマ区切り。例: "https://your-dashboard.pages.dev,http://localhost:5173"
+  // Telemetry（オプトイン）。送信先は各自で設定。既定の送信先は埋め込まない。
+  TELEMETRY_ENABLED?: string;
+  TELEMETRY_ENDPOINT?: string;
   // Phase 2: Better Auth
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;

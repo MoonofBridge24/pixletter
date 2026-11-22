@@ -1,0 +1,96 @@
+# 构建 Release（手动触发或推送 v* 标签时）
+#
+# 只负责「构建 + 打包 + 发布到 GitHub Release」，不会部署到 Cloudflare，
+# 也不会碰 D1 / 绑定 / 变量 —— 那些按 docs/MANUAL-DEPLOY.md 手动完成。
+#
+# 产出的资产：
+#   pixletter-pages.zip      —— Pages 产物（dashboard 静态文件 + _worker.js），可直接上传到 Pages
+#   pixletter-worker.js      —— 单独的 _worker.js，供「只上传 JS」的场景使用
+#   pixletter-extension.zip  —— Chrome 扩展源码，可在 chrome://extensions 加载 unpacked
+#   SHA256SUMS               —— 校验和
+#
+# 权限：需要 token 具备 contents: write（已在本文件 permissions 中声明）。
+# 若仓库 Actions 设为只读，请到 Settings → Actions → General → Workflow
+# permissions 打开 "Read and write permissions"。
+
+name: 构建 Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release 标签（如 v0.3.0）'
+        required: true
+        default: 'v0.3.0'
+      prerelease:
+        description: '标记为预发布'
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 构建并发布 Release 资产
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: 安装依赖
+        run: |
+          unset ESBUILD_BINARY_PATH
+          pnpm install --no-frozen-lockfile --force
+
+      # VITE_API_URL 故意不设置：API 走同源相对路径，一个 Pages 实例搞定一切。
+      - name: 构建 Pages 产物（Dashboard + API worker）
+        run: pnpm --filter @pixletter/dashboard build
+
+      - name: 校验 _worker.js 已生成
+        run: |
+          test -f apps/dashboard/dist/_worker.js || { echo "缺少 _worker.js，构建失败"; exit 1; }
+          echo "_worker.js 已生成，大小：$(du -h apps/dashboard/dist/_worker.js | cut -f1)"
+
+      - name: 打包 Pages 产物
+        working-directory: apps/dashboard/dist
+        run: zip -r ../../../pixletter-pages.zip . -x '*.map'
+
+      - name: 复制单独的 worker 文件
+        run: cp apps/dashboard/dist/_worker.js pixletter-worker.js
+
+      - name: 打包 Chrome 扩展
+        working-directory: apps/extension
+        run: zip -r ../../pixletter-extension.zip . -x '*.map'
+
+      - name: 生成校验和
+        run: |
+          sha256sum pixletter-pages.zip pixletter-worker.js pixletter-extension.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: 创建 GitHub Release 并上传资产
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: pixletter ${{ inputs.tag || github.ref_name }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            pixletter-pages.zip
+            pixletter-worker.js
+            pixletter-extension.zip
+            SHA256SUMS
