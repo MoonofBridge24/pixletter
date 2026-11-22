@@ -27,6 +27,8 @@
     "deploy:dashboard": "pnpm --filter @pixletter/dashboard deploy",
     "build:pages": "pnpm --filter @pixletter/dashboard build",
     "dev:pages": "pnpm --filter @pixletter/dashboard build && cd apps/dashboard && wrangler pages dev dist",
+    "bootstrap:preview": "node scripts/bootstrap-cloudflare.mjs --offline --with-secrets",
+    "bootstrap:apply": "node scripts/bootstrap-cloudflare.mjs --apply",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

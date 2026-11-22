@@ -86,9 +86,11 @@ jobs:
       - name: Build Pages app (Dashboard + API worker)
         run: pnpm --filter @pixletter/dashboard build
 
-      # Create the project only if missing. `wrangler pages deploy` reads
-      # `name` from apps/dashboard/wrangler.toml; keep this in sync. Bindings,
-      # vars and secrets are configured manually in the dashboard, not here.
+      # Create the project only if missing. Bindings, vars and secrets are
+      # configured manually in the dashboard, NOT via wrangler.toml — keeping
+      # them out of the config leaves dashboard fields editable. Do not add
+      # `pages_build_output_dir` / `[[d1_databases]]` / `[vars]` back to
+      # apps/dashboard/wrangler.toml or the dashboard turns read-only again.
       - name: Create Pages Project
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

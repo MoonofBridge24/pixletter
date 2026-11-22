@@ -1,26 +1,22 @@
-# Cloudflare Pages — single instance for dashboard + API.
+# Cloudflare Pages — local-development config only.
 #
-# The Pages build output (dist/) contains both the static dashboard and a
-# generated `_worker.js` (Pages Functions advanced mode). The worker runs the
-# full Hono API from apps/api/src/index.ts and falls back to `env.ASSETS` for
-# everything else. There is no separate Workers deployment.
+# IMPORTANT: This file deliberately does NOT declare `pages_build_output_dir`,
+# `[[d1_databases]]` or `[vars]`. In Cloudflare Pages, the moment ANY of those
+# keys appear, wrangler.toml becomes the project's "source of truth" and the
+# dashboard's Variables/Secrets and Bindings turn READ-ONLY (greyed out).
+# Keeping them out makes the Cloudflare DASHBOARD the editable source of truth
+# for vars + bindings, while this file is used for local `wrangler pages dev`.
 #
-# Secrets (set with `wrangler pages secret put <NAME>`):
-#   BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
-#   GOOGLE_CLIENT_SECRET, SLACK_WEBHOOK_URL, STRIPE_SECRET_KEY,
-#   STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID
+# Live configuration (set once in the dashboard, editable any time):
+#   Workers & Pages -> pixletter -> Settings
+#     - Environment variables: HOSTING_MODE, ALLOW_SIGNUP, ALLOWED_ORIGINS
+#       (add in BOTH Production and Preview)
+#     - Functions -> Bindings -> D1 database, variable name `DB`
+#     - Secrets via: wrangler pages secret put <NAME> --project-name=pixletter
+#
+# If the dashboard fields are greyed out, it means a previous deploy used a
+# config with the keys above. Remove them here and redeploy once to unlock.
 
 name = "pixletter"
-pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-14"
 compatibility_flags = ["nodejs_compat"]
-
-[[d1_databases]]
-binding = "DB"
-database_name = "pixletter-db"
-database_id = "1f8e0193-7069-4c83-a04c-252a30585187" # 请自行改为你的 db_id
-
-[vars]
-HOSTING_MODE = "hosted"  # Phase 2: multi-tenant auth enabled
-ALLOWED_ORIGINS = "https://pixletter.pages.dev,https://pixletter.mb24.cc.cd" # 请自行改为你自己的域名
-ALLOW_SIGNUP = "false"

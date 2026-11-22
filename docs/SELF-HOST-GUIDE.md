@@ -80,6 +80,15 @@ dashboard.** The GitHub Actions workflow deliberately does NOT touch them, so
 manual edits are never overwritten on redeploy. Do this one-time setup before
 the first deploy:
 
+> **Dashboard fields are grey / read-only?** That means a previous deploy used
+> a `wrangler.toml` containing `pages_build_output_dir`, `[[d1_databases]]` or
+> `[vars]`. In Pages, any of those keys makes the config file the source of
+> truth and locks the dashboard to view-only. `apps/dashboard/wrangler.toml`
+> intentionally keeps only `name` + compatibility settings for local dev.
+> **To unlock:** those keys are already absent here — just redeploy once.
+> Wrangler will warn "Ignoring configuration file for now" and leave the
+> dashboard editable. Do not add them back.
+
 1. **D1 binding** — Workers & Pages → `pixletter` → Settings → Functions →
    Bindings → Add → D1 database. Variable name **must** be `DB`; pick the
    `pixletter-db` database. Add it in **both Production and Preview**.
@@ -94,6 +103,49 @@ the first deploy:
 After a one-time dashboard setup, CI deploys keep working without ever
 clearing your secrets. `apps/dashboard/wrangler.toml` only drives local
 `wrangler pages dev`; no CLI step pushes its bindings to the project.
+
+### Automating the D1 setup (optional)
+
+If you'd rather not click through the D1 binding by hand, there is an
+idempotent bootstrap script. It **find-or-creates** the D1 database, applies
+migrations + seed, and binds D1 to the Pages project via the REST API:
+
+```bash
+# 1. Preview the exact plan locally — no credentials needed, no changes made
+node scripts/bootstrap-cloudflare.mjs --offline --with-secrets
+
+# 2. Dry-run against your real account (reads state, writes nothing)
+export CLOUDFLARE_ACCOUNT_ID=...  CLOUDFLARE_API_TOKEN=...
+node scripts/bootstrap-cloudflare.mjs --with-secrets
+
+# 3. Apply
+node scripts/bootstrap-cloudflare.mjs --apply --with-secrets
+```
+
+Or run it from GitHub Actions: **Actions → "Bootstrap Cloudflare (D1 +
+bindings)" → Run workflow**, with `apply` checked. This is a **separate,
+manually-triggered workflow** — the normal "Deploy to Cloudflare" workflow
+still never touches bindings, so your manual edits stay safe.
+
+What it does and does not do:
+
+| Does | Does not |
+|------|----------|
+| Find existing D1 by name, create only if missing | Recreate or overwrite an existing DB |
+| Apply `packages/db/migrations/*.sql` + seed | Touch your data beyond migrations |
+| PATCH `deployment_configs` with **only** `d1_databases` + compatibility | Send `env_vars` (the bug that once wiped secrets) |
+| `pages secret put` for secrets that are **missing** | Overwrite a secret that already exists |
+| Set compatibility_date + `nodejs_compat` | Write to `apps/dashboard/wrangler.toml` (would re-lock the dashboard) |
+
+**Will it re-lock the dashboard?** No. The grey/read-only state is caused only
+by `pages_build_output_dir` / `[[d1_databases]]` / `[vars]` in the wrangler
+config at deploy time. This script uses the REST API (the same path the
+dashboard itself uses), never the config file, so the fields stay editable.
+
+**Vars are still manual.** The script deliberately does not set `HOSTING_MODE`,
+`ALLOW_SIGNUP` or `ALLOWED_ORIGINS` — add those in the dashboard (step 2 above).
+This keeps a clear boundary: CI owns the database plumbing, you own the
+application config.
 
 > Note: `wrangler.toml` cannot hold `[observability]` for a Pages project
 > (that key is Workers-only and fails config validation). Observability stays
@@ -180,6 +232,10 @@ curl https://pixletter.pages.dev/health
   and redeploy. This is the single most common auth failure.
 - **`/health` returns `"mode":"self"` when you expect `hosted`** →
   `HOSTING_MODE` var is missing in the Pages dashboard (Production env).
+- **Variables / D1 binding are greyed out and cannot be edited** → the project
+  is config-driven. Ensure `apps/dashboard/wrangler.toml` has NO
+  `pages_build_output_dir`, `[[d1_databases]]` or `[vars]`, then redeploy once.
+  The fields become editable in the dashboard again.
 
 ## Updating
 

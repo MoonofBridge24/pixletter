@@ -1,0 +1,87 @@
+# One-time Cloudflare bootstrap (manual trigger only).
+#
+# Find-or-creates the D1 database, applies migrations, and binds D1 to the
+# Pages project — all via the REST API. Deliberately SEPARATE from the normal
+# deploy workflow so that everyday deploys never touch bindings/vars/secrets.
+#
+# Why a separate workflow:
+#   - The deploy workflow must stay "code only" to keep the dashboard editable.
+#   - This workflow is run ONCE on a fresh fork (or any time the DB needs
+#     re-binding). It is idempotent — safe to re-run.
+#   - It patches ONLY `deployment_configs.d1_databases` (+ compatibility),
+#     never `env_vars`, so existing vars/secrets are never wiped.
+#
+# Required repository secrets:
+#   CLOUDFLARE_API_TOKEN  — token with D1:Edit + Cloudflare Pages:Edit
+#   CLOUDFLARE_ACCOUNT_ID — Cloudflare Account ID
+# Optional (only when "fill missing secrets" is checked, and only for ones
+# you want auto-set; values come from repo secrets of the same name):
+#   BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID,
+#   GOOGLE_CLIENT_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+#   STRIPE_PRO_PRICE_ID, SLACK_WEBHOOK_URL
+
+name: Bootstrap Cloudflare (D1 + bindings)
+
+on:
+  workflow_dispatch:
+    inputs:
+      d1_database_name:
+        description: 'D1 database name (find-or-create)'
+        default: 'pixletter-db'
+        required: true
+      pages_project:
+        description: 'Pages project name'
+        default: 'pixletter'
+        required: true
+      apply:
+        description: 'Actually apply changes (uncheck for a dry-run)'
+        type: boolean
+        default: false
+      fill_secrets:
+        description: 'Put secrets that are missing (values from repo secrets)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap D1 + bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile --force
+
+      - name: Bootstrap (find-or-create D1, migrate, bind)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_NAME: ${{ inputs.d1_database_name }}
+          PAGES_PROJECT: ${{ inputs.pages_project }}
+
+          # Secret values — only consumed when fill_secrets is checked.
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.apply }}" = "true" ]; then ARGS="$ARGS --apply"; fi
+          if [ "${{ inputs.fill_secrets }}" = "true" ]; then ARGS="$ARGS --with-secrets"; fi
+          node scripts/bootstrap-cloudflare.mjs $ARGS --json
