@@ -6,6 +6,7 @@
  */
 
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { tenants, users } from '@pixletter/db';
@@ -16,6 +17,9 @@ import type { Env } from '../lib/types';
 export function createAuth(env: Env) {
   const db = createDb(env.DB);
   const authDb = drizzle(env.DB, { schema: authSchema });
+
+  // 只有显式设置为 'true' 才开放注册；未设置或其它值一律关闭（fail-closed）。
+  const allowSignup = env.ALLOW_SIGNUP === 'true';
 
   return betterAuth({
     database: drizzleAdapter(authDb, {
@@ -30,7 +34,8 @@ export function createAuth(env: Env) {
     ].filter(Boolean),
     emailAndPassword: {
       enabled: true,
-      allowSignup: env.ALLOW_SIGNUP === 'true',
+      // Better Auth 端的正确选项名是 disableSignUp（之前误写成 allowSignup，被静默忽略）
+      disableSignUp: !allowSignup,
     },
     socialProviders: {
       ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -51,6 +56,14 @@ export function createAuth(env: Env) {
     databaseHooks: {
       user: {
         create: {
+          // 兜底：任何途径创建新用户前都检查开关，防止社交登录等绕过 disableSignUp
+          before: async () => {
+            if (!allowSignup) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Sign up is currently disabled.',
+              });
+            }
+          },
           after: async (baUser: { id: string; name: string; email: string }) => {
             try {
               await db.insert(tenants).values({

@@ -5,7 +5,7 @@
 export interface Env {
   DB: D1Database;
   HOSTING_MODE: string; // "self" | "hosted"
-  ALLOW_SIGNUP?: string;
+  ALLOW_SIGNUP?: string; // 'true' 才开放注册；未设置或其它值均关闭（fail-closed）
   API_KEY?: string;
   SENTRY_DSN?: string;
   SLACK_WEBHOOK_URL?: string;
