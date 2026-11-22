@@ -27,7 +27,6 @@
     "deploy:dashboard": "pnpm --filter @pixletter/dashboard deploy",
     "build:pages": "pnpm --filter @pixletter/dashboard build",
     "dev:pages": "pnpm --filter @pixletter/dashboard build && cd apps/dashboard && wrangler pages dev dist",
-    "configure:pages": "node scripts/configure-pages-bindings.mjs",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

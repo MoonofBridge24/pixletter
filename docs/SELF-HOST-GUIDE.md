@@ -71,32 +71,29 @@ npx wrangler pages deploy dist --branch=main
 
 `wrangler pages deploy` does **not** work like `wrangler deploy`. For Workers,
 `wrangler.toml` is the source of truth and every deploy applies its bindings.
-For **Pages**, the live project's settings are the source of truth — the
-`wrangler.toml` bindings/vars default to *local development only*, and a
-deploy-only API token will happily create a deployment while leaving the D1
-database and vars **unbound**. That shows up as API errors like
-`D1_ERROR: no such binding` even though the deploy succeeded.
+For **Pages**, the live project's settings are the source of truth — `wrangler.toml`
+is used for local development only, and a deploy will not bind D1 or set vars
+for you.
 
-This repo handles it in `scripts/configure-pages-bindings.mjs`, which PATCHes
-the D1 binding + vars into the project's `deployment_configs` for **both**
-production and preview, reading all values from `apps/dashboard/wrangler.toml`.
-The GitHub Actions workflow runs it automatically before `wrangler pages deploy`.
+**All bindings, vars and secrets are configured ONCE by hand in the Cloudflare
+dashboard.** The GitHub Actions workflow deliberately does NOT touch them, so
+manual edits are never overwritten on redeploy. Do this one-time setup before
+the first deploy:
 
-For a manual deploy, run it yourself:
+1. **D1 binding** — Workers & Pages → `pixletter` → Settings → Functions →
+   Bindings → Add → D1 database. Variable name **must** be `DB`; pick the
+   `pixletter-db` database. Add it in **both Production and Preview**.
+2. **Vars** — Settings → Environment variables → Add, in **both** Production
+   and Preview: `HOSTING_MODE=hosted`, `ALLOW_SIGNUP=false`,
+   `ALLOWED_ORIGINS=https://pixletter.pages.dev` (plus any custom domain).
+3. **Compatibility flags** — Settings → Functions → Compatibility flags:
+   enable `nodejs_compat`. Set compatibility date to `2026-05-14`.
+4. **Secrets** — see below. Set these with `wrangler pages secret put` (they
+   cannot be read back, only replaced).
 
-```bash
-export CLOUDFLARE_ACCOUNT_ID=...
-export CLOUDFLARE_API_TOKEN=...   # needs "Cloudflare Pages: Edit" permission
-pnpm configure:pages            # applies D1 + vars from wrangler.toml
-pnpm build:pages
-cd apps/dashboard && wrangler pages deploy dist --branch=main
-```
-
-Alternatively, set them by hand once in the dashboard:
-**Workers & Pages → pixletter → Settings → Functions → Bindings → Add → D1
-database** (variable name `DB`), plus **Settings → Environment variables** for
-`HOSTING_MODE`, `ALLOW_SIGNUP`, `ALLOWED_ORIGINS` — in BOTH Production and
-Preview. Redeploy afterwards.
+After a one-time dashboard setup, CI deploys keep working without ever
+clearing your secrets. `apps/dashboard/wrangler.toml` only drives local
+`wrangler pages dev`; no CLI step pushes its bindings to the project.
 
 > Note: `wrangler.toml` cannot hold `[observability]` for a Pages project
 > (that key is Workers-only and fails config validation). Observability stays
@@ -104,8 +101,8 @@ Preview. Redeploy afterwards.
 
 ### Environment Variables
 
-Defined in `apps/dashboard/wrangler.toml` and applied to the project by the
-script above:
+Set these as **Environment variables** in the Pages project dashboard
+(Production + Preview), not via `wrangler.toml`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -115,24 +112,32 @@ script above:
 | `SLACK_WEBHOOK_URL` | No | Slack webhook for open notifications |
 | `PIXEL_DOMAIN` | No | Custom domain for pixel URLs |
 
-Set secrets on the **Pages project** (not as a Worker):
+Secrets go on the **Pages project** (not a Worker). Generate a secret and set
+each one — if `BETTER_AUTH_SECRET` is missing, **every `/api/auth/*` request
+returns 500**:
 
 ```bash
+# Generate a strong secret (>=32 chars)
+npx auth secret   # or: openssl rand -base64 32
+
 npx wrangler pages secret put BETTER_AUTH_SECRET --project-name=pixletter
 npx wrangler pages secret put BETTER_AUTH_URL --project-name=pixletter
 # Optional: Google OAuth
 npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name=pixletter
 npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter
+# Optional: Stripe billing
+npx wrangler pages secret put STRIPE_SECRET_KEY --project-name=pixletter
+npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name=pixletter
+npx wrangler pages secret put STRIPE_PRO_PRICE_ID --project-name=pixletter
 ```
 
 ### Hosted Mode (multi-tenant)
 
-To enable multi-tenant mode with authentication:
+To enable multi-tenant mode with authentication, set `HOSTING_MODE=hosted` in
+the Pages dashboard, ensure all secrets above exist, then redeploy:
 
 ```bash
-# Update vars in apps/dashboard/wrangler.toml, then:
-pnpm configure:pages                              # push vars to the project
-cd apps/dashboard && wrangler pages deploy dist --branch=main
+cd apps/dashboard && npx wrangler pages deploy dist --branch=main
 ```
 
 > API requests from the dashboard use same-origin relative paths. Leave
@@ -166,6 +171,15 @@ curl https://pixletter.pages.dev/health
 # Expected response:
 # {"status":"ok","version":"0.3.0","mode":"hosted"}
 ```
+
+### Troubleshooting
+
+- **Every `/api/auth/*` returns 500 (`Internal server error`)** but `/health`
+  is fine → `BETTER_AUTH_SECRET` is missing on the Pages project. Re-set it
+  with `wrangler pages secret put BETTER_AUTH_SECRET --project-name=pixletter`
+  and redeploy. This is the single most common auth failure.
+- **`/health` returns `"mode":"self"` when you expect `hosted`** →
+  `HOSTING_MODE` var is missing in the Pages dashboard (Production env).
 
 ## Updating
 

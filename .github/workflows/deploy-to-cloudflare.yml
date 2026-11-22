@@ -7,12 +7,15 @@
 #
 # 必要な Secrets:
 #   CLOUDFLARE_API_TOKEN  — Cloudflare API Token with:
-#                           • Cloudflare Pages: Edit  (deploy + binding PATCH)
+#                           • Cloudflare Pages: Edit  (deploy)
 #                           • D1: Edit               (migrations)
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare Account ID
 #   D1_DATABASE_NAME      — D1 database name (default: pixletter-db)
-# Note: "Pages:Edit" is required for the binding-config step; a deploy-only
-# token will bind nothing and the API will fail with D1_ERROR at runtime.
+#
+# NOTE: This workflow ONLY deploys code + runs D1 migrations. It does NOT
+# manage Pages bindings, vars or secrets — those are configured once by hand
+# in the Cloudflare dashboard (see SELF-HOST-GUIDE.md). Keeping them out of
+# CI means secrets you set manually are never overwritten on redeploy.
 
 name: Deploy to Cloudflare
 
@@ -84,8 +87,8 @@ jobs:
         run: pnpm --filter @pixletter/dashboard build
 
       # Create the project only if missing. `wrangler pages deploy` reads
-      # `name` from apps/dashboard/wrangler.toml, so keep all three in sync:
-      # config name, this create command, and the --project-name in docs.
+      # `name` from apps/dashboard/wrangler.toml; keep this in sync. Bindings,
+      # vars and secrets are configured manually in the dashboard, not here.
       - name: Create Pages Project
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -93,16 +96,8 @@ jobs:
         run: |
           npx wrangler pages project create pixletter --production-branch=main || true
 
-      # Pages differs from Workers: `wrangler pages deploy` does NOT reliably
-      # apply bindings/vars from wrangler.toml to the live project (a deploy
-      # token alone often leaves DB and vars unbound). Apply them explicitly
-      # via the REST API so production + preview always get D1 and vars.
-      - name: Configure Pages bindings (D1 + vars)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: node scripts/configure-pages-bindings.mjs
-
+      # Bindings / vars / secrets are intentionally NOT managed here.
+      # Configure them once in the Cloudflare dashboard so manual edits stick.
       # _worker.js inside dist supplies all dynamic routes. One instance.
       - name: Deploy single Pages instance
         env:
