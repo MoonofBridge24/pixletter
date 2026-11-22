@@ -5,6 +5,46 @@ import {
 } from 'cloudflare:test';
 import { describe, it, expect, beforeAll } from 'vitest';
 import app from '../src/index';
+import { TRANSPARENT_GIF } from '../src/lib/pixel';
+
+/**
+ * 开了追踪的邮件正文会插入这张 1x1 GIF。它必须真的是透明的：
+ * 曾经因为 LZW 数据指向 index=1(黑) 而 GCE 透明色=0(白)，
+ * 结果在 QQ 邮箱里显示成一个可见的黑点。这里做字节级回归检查。
+ */
+describe('TRANSPARENT_GIF', () => {
+  it('decodes to a single pixel matching the transparent color index', () => {
+    const b = TRANSPARENT_GIF;
+    const text = String.fromCharCode(...b.slice(0, 6));
+    expect(text).toBe('GIF89a');
+    expect(b[6] | (b[7] << 8)).toBe(1); // width
+    expect(b[8] | (b[9] << 8)).toBe(1); // height
+
+    // GCE: 0x21 0xf9 0x04 <packed> <delay lo> <delay hi> <transparentIndex> 0x00
+    const gce = b.indexOf(0x21);
+    expect(b[gce + 1]).toBe(0xf9);
+    const hasTransparency = (b[gce + 3] & 0x01) === 1;
+    expect(hasTransparency).toBe(true);
+    const transparentIndex = b[gce + 6];
+
+    // image data: ... 0x2c ... <LZW min code size> <block size> <data> 0x00
+    const descriptor = b.indexOf(0x2c);
+    const minCodeSize = b[descriptor + 10];
+    const codeSize = minCodeSize + 1;
+    const clearCode = 1 << minCodeSize;
+    const dataStart = descriptor + 12;
+    const dataByte = b[dataStart];
+
+    // LSB-first: first code = clear, second code = pixel index
+    const codeAt = (shift: number) =>
+      ((dataByte >> (shift + 0)) & 1) |
+      ((dataByte >> (shift + 1)) & 1) << 1 |
+      ((dataByte >> (shift + 2)) & 1) << 2;
+    expect(codeAt(0)).toBe(clearCode); // clear code
+    const pixelIndex = codeAt(codeSize);
+    expect(pixelIndex).toBe(transparentIndex); // 必须是透明色，否则会看到黑/白点
+  });
+});
 
 async function applyMigrations(db: D1Database) {
   const statements = [

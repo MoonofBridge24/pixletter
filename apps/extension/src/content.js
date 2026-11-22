@@ -388,6 +388,12 @@ async function runTracking(controller) {
   try {
     var payload = provider.extract(composeEl);
     console.log(LOG, 'payload', payload);
+    // 收件人没识别出来时不要伪造 support@example.com 给后端，否则面板里会多出
+    // 一条永远对不上的假记录。宁可这封不追踪，邮件本身照常发送。
+    if (!payload || !payload.recipient) {
+      console.warn(LOG, 'no recipient detected — skip tracking for this email');
+      return;
+    }
     var result = await sendToApi(payload);
     console.log(LOG, 'api result', result);
     var config = await new Promise(function (resolve) {
@@ -512,7 +518,7 @@ function findActiveController(target) {
 // Extract email data — provider 固有
 // ============================================================
 function extractGmail(composeEl) {
-  if (!composeEl) return { subject: '', recipient: 'support@example.com' };
+  if (!composeEl) return { subject: '', recipient: '' };
 
   var subjectEl = composeEl.querySelector('input[name="subjectbox"]');
   var subject = subjectEl ? subjectEl.value : '';
@@ -524,7 +530,7 @@ function extractGmail(composeEl) {
     var email = el.getAttribute('data-hovercard-id') || el.value || el.textContent;
     if (email && email.indexOf('@') !== -1) recipients.push(email.trim());
   }
-  var recipient = recipients[0] || 'support@example.com';
+  var recipient = recipients[0] || '';
 
   var bodyEl = composeEl.querySelector('[role="textbox"][contenteditable="true"]');
   var urls = collectUrls(bodyEl);
@@ -535,6 +541,65 @@ function extractGmail(composeEl) {
     recipientName: recipients[0] ? recipients[0].split('@')[0] : undefined,
     urls: urls.length > 0 ? urls : undefined,
   };
+}
+
+/**
+ * QQ XMail の宛先を抽出する。
+ * 実 DOM で確認済み: 宛先チップ = .xmail-cmp-account 内の .cmp-account-nick に
+ * 「念肆桥」「1226007358」等の表示名が入る。メールアドレスは DOM に現れない
+ * （Vue のデータモデルにしか無い）ため、表示テキストをそのまま宛先として使う。
+ */
+function extractQmailRecipient(bodyEl) {
+  var result = [];
+  var seen = Object.create(null);
+
+  function add(v) {
+    v = (v || '').trim().replace(/[,，、;；+]+$/, '').trim();
+    if (!v || v === ',' || v === '+') return;
+    if (seen[v]) return;              // ellipsis 表示と本体で同じチップが二重に出ることがある
+    seen[v] = true;
+    result.push(v);
+  }
+
+  // 送信者本人を除外しない。自分宛に送る（別アカウント／エイリアス宛含む）のは
+  // 正規の利用シナリオであり、宛先エリアは .receiver-editor にスコープ済みなので
+  // 发件人区域を誤検出する心配もない。ニックネーム/メールアドレスを問わず採る。
+
+  // 主経路: 宛先エリアの各チップ .xmail-cmp-account の .cmp-account-nick
+  //   抄送/密送も同じ class を使うため、まず受信者 editor にスコープを絞る
+  var receiverEditor = document.querySelector('.mail-compose-receivers .receiver-editor') ||
+                       document.querySelector('.xmail-cmp-accounts-editor.receiver-editor') ||
+                       document.querySelector('.receiver-editor');
+  var scope = receiverEditor || document;
+  var capsules = scope.querySelectorAll('.xmail-cmp-account');
+  for (var i = 0; i < capsules.length; i++) {
+    var cap = capsules[i];
+    // querySelector の引数を分ける（.cmp-account-inner は親なので nickel を優先）
+    var nick = cap.querySelector('.cmp-account-nick') || cap.querySelector('.cmp-account-inner');
+    var t = (nick ? nick.textContent : cap.textContent) || '';
+    t = t.trim().replace(/[,，]+$/, '');
+    add(t);
+  }
+
+  // 保険: チップが取れない_old 形式は input のメールを拾う
+  if (result.length === 0) {
+    var EMAIL_RE = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g;
+    var inputs = document.querySelectorAll(
+      'input[aria-label*="收件人"], input[placeholder*="收件人"], input[name="to"], ' +
+      '[class*="receiver"] input, [class*="recipient"] [contenteditable="true"]'
+    );
+    for (var j = 0; j < inputs.length; j++) {
+      var v = inputs[j].value || inputs[j].textContent || '';
+      var m = v.match(EMAIL_RE);
+      if (m) for (var k = 0; k < m.length; k++) add(m[k]);
+    }
+  }
+
+  console.log(LOG, 'extractQmailRecipient', {
+    result: result, capsuleCount: capsules.length,
+    scope: (scope.className || scope.nodeName || ''),
+  });
+  return result;
 }
 
 function extractQmail(composeEl) {
@@ -550,32 +615,22 @@ function extractQmail(composeEl) {
   ]);
   if (subjectEl) subject = subjectEl.value || subjectEl.textContent || '';
 
-  // 宛先: 複数あるので @ を含む最初の値を採用
-  var toEls = document.querySelectorAll(
-    'input[aria-label*="收件人"], #to_input, input[name="to"], [placeholder*="收件人"], ' +
-    '[class*="receiver"] input, [class*="receiver"] [contenteditable="true"], [class*="recipient"] [contenteditable="true"]'
-  );
-  var emails = [];
-  for (var i = 0; i < toEls.length; i++) {
-    var v = (toEls[i].value || toEls[i].textContent || '').trim();
-    var parts = v.split(/[,;，；\s]+/);
-    for (var j = 0; j < parts.length; j++) {
-      if (parts[j].indexOf('@') !== -1) emails.push(parts[j]);
-    }
-  }
-  recipient = emails[0] || '';
-
+  // 本文要素は宛先抽出での除外判定に使うため先に取得
   var bodyEl = PROVIDERS.qqmail.body(composeEl);
+  var recipients = extractQmailRecipient(bodyEl);
+  recipient = recipients[0] || '';
+
   var urls = collectUrls(bodyEl);
 
   console.log(LOG, 'extractQmail', {
-    subject: subject.trim(), recipient: recipient, bodyFound: !!bodyEl,
+    subject: subject.trim(), recipient: recipient, allRecipients: recipients,
+    bodyFound: !!bodyEl,
     urls: urls.map(function (u) { return u.url; }),
   });
 
   return {
     subject: subject.trim(),
-    recipient: recipient || 'support@example.com',
+    recipient: recipient,
     recipientName: recipient ? recipient.split('@')[0] : undefined,
     urls: urls.length > 0 ? urls : undefined,
   };
