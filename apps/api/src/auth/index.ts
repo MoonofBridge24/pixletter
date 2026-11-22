@@ -30,6 +30,7 @@ export function createAuth(env: Env) {
     ].filter(Boolean),
     emailAndPassword: {
       enabled: true,
+      allowSignup: env.ALLOW_SIGNUP === 'false',
     },
     socialProviders: {
       ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET

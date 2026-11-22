@@ -173,7 +173,7 @@ app.post('/', async (c) => {
       optoutUrl,
       optoutHtml: `<div style="font-size:11px;color:#999;margin-top:16px;border-top:1px solid #eee;padding-top:8px;">` +
         `<a href="${optoutUrl}" style="color:#999;">Unsubscribe from tracking</a></div>`,
-      forceOptoutFooter: isHosted, // FR-P3-10: hosted版ではフッター強制
+      // forceOptoutFooter: isHosted, // FR-P3-10: hosted版ではフッター強制
       links: trackedLinks,
     },
     201,
