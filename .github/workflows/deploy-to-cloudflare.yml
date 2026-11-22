@@ -6,9 +6,13 @@
 # 別途 Workers デプロイは行わない。
 #
 # 必要な Secrets:
-#   CLOUDFLARE_API_TOKEN  — Cloudflare API Token (Pages + D1 権限)
+#   CLOUDFLARE_API_TOKEN  — Cloudflare API Token with:
+#                           • Cloudflare Pages: Edit  (deploy + binding PATCH)
+#                           • D1: Edit               (migrations)
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare Account ID
 #   D1_DATABASE_NAME      — D1 database name (default: pixletter-db)
+# Note: "Pages:Edit" is required for the binding-config step; a deploy-only
+# token will bind nothing and the API will fail with D1_ERROR at runtime.
 
 name: Deploy to Cloudflare
 
@@ -89,8 +93,17 @@ jobs:
         run: |
           npx wrangler pages project create pixletter --production-branch=main || true
 
-      # wrangler.toml in apps/dashboard supplies D1/vars; _worker.js inside
-      # dist supplies all dynamic routes. One deployment, one instance.
+      # Pages differs from Workers: `wrangler pages deploy` does NOT reliably
+      # apply bindings/vars from wrangler.toml to the live project (a deploy
+      # token alone often leaves DB and vars unbound). Apply them explicitly
+      # via the REST API so production + preview always get D1 and vars.
+      - name: Configure Pages bindings (D1 + vars)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/configure-pages-bindings.mjs
+
+      # _worker.js inside dist supplies all dynamic routes. One instance.
       - name: Deploy single Pages instance
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

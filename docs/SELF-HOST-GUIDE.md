@@ -67,7 +67,45 @@ npx wrangler pages deploy dist --branch=main
 
 ## Configuration
 
-### Environment Variables (apps/dashboard/wrangler.toml)
+### Pages bindings vs Workers (important)
+
+`wrangler pages deploy` does **not** work like `wrangler deploy`. For Workers,
+`wrangler.toml` is the source of truth and every deploy applies its bindings.
+For **Pages**, the live project's settings are the source of truth — the
+`wrangler.toml` bindings/vars default to *local development only*, and a
+deploy-only API token will happily create a deployment while leaving the D1
+database and vars **unbound**. That shows up as API errors like
+`D1_ERROR: no such binding` even though the deploy succeeded.
+
+This repo handles it in `scripts/configure-pages-bindings.mjs`, which PATCHes
+the D1 binding + vars into the project's `deployment_configs` for **both**
+production and preview, reading all values from `apps/dashboard/wrangler.toml`.
+The GitHub Actions workflow runs it automatically before `wrangler pages deploy`.
+
+For a manual deploy, run it yourself:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...   # needs "Cloudflare Pages: Edit" permission
+pnpm configure:pages            # applies D1 + vars from wrangler.toml
+pnpm build:pages
+cd apps/dashboard && wrangler pages deploy dist --branch=main
+```
+
+Alternatively, set them by hand once in the dashboard:
+**Workers & Pages → pixletter → Settings → Functions → Bindings → Add → D1
+database** (variable name `DB`), plus **Settings → Environment variables** for
+`HOSTING_MODE`, `ALLOW_SIGNUP`, `ALLOWED_ORIGINS` — in BOTH Production and
+Preview. Redeploy afterwards.
+
+> Note: `wrangler.toml` cannot hold `[observability]` for a Pages project
+> (that key is Workers-only and fails config validation). Observability stays
+> enabled only in `apps/api/wrangler.toml`.
+
+### Environment Variables
+
+Defined in `apps/dashboard/wrangler.toml` and applied to the project by the
+script above:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -92,12 +130,9 @@ npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name=pixletter
 To enable multi-tenant mode with authentication:
 
 ```bash
-# Update apps/dashboard/wrangler.toml
-# HOSTING_MODE = "hosted"
-# ALLOWED_ORIGINS = "https://your-dashboard.pages.dev"
-
-# Redeploy after changing vars/secrets
-cd apps/dashboard && npx wrangler pages deploy dist --branch=main
+# Update vars in apps/dashboard/wrangler.toml, then:
+pnpm configure:pages                              # push vars to the project
+cd apps/dashboard && wrangler pages deploy dist --branch=main
 ```
 
 > API requests from the dashboard use same-origin relative paths. Leave
