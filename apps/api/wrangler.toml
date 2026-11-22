@@ -10,7 +10,7 @@ database_id = "1f8e0193-7069-4c83-a04c-252a30585187"
 
 # 環境変数（公開しても安全なもの）
 [vars]
-HOSTING_MODE = "hosted"  # Phase 2: マルチテナント認証有効
+HOSTING_MODE = "self"  # Phase 2: マルチテナント認証有効
 ALLOWED_ORIGINS = "https://pixletter.mb24.cc.cd,https://pixletter-dashboard-5fe.pages.dev"
 
 # Secrets（wrangler secret put で設定）:
