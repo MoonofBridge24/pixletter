@@ -49,7 +49,7 @@ export function App() {
   }, []);
 
   if (checking) {
-    return <div className="loading">Loading...</div>;
+    return <div className="loading">加载中...</div>;
   }
 
   if (page === 'landing') {
@@ -71,7 +71,7 @@ export function App() {
         <h1>pixletter</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-            Dashboard
+            控制台
           </span>
           <button
             onClick={() => {
@@ -88,7 +88,7 @@ export function App() {
               color: 'var(--text-secondary)',
             }}
           >
-            Sign Out
+            退出登录
           </button>
         </div>
       </header>

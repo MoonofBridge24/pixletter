@@ -28,9 +28,9 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="container">
           <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-            <h2 style={{ fontSize: 18, marginBottom: 12 }}>Something went wrong</h2>
+            <h2 style={{ fontSize: 18, marginBottom: 12 }}>出错了</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
-              {this.state.error?.message || 'An unexpected error occurred.'}
+              {this.state.error?.message || '发生了一个意外错误。'}
             </p>
             <button
               className="btn"
@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 window.location.reload();
               }}
             >
-              Reload
+              重新加载
             </button>
           </div>
         </div>

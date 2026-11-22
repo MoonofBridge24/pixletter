@@ -11,6 +11,10 @@ export interface Env {
   ALLOW_SIGNUP?: string; // 'true' 才开放注册；未设置或其它值均关闭（fail-closed）
   API_KEY?: string;
   SENTRY_DSN?: string;
+  // 新規アカウント作成後 24h の送信上限（デフォルト 100）。Pages ダッシュボードで変更可。
+  NEW_USER_EMAIL_LIMIT?: string;
+  // 送信直後に既読と数えない猶予期間（ミリ秒、デフォルト 10000 = 10秒）。
+  OPEN_GRACE_MS?: string;
   // Server酱³ sendkey（全ユーザー共通のフォールバック。個別設定が優先）
   SERVERCHAN_SENDKEY?: string;
   PIXEL_DOMAIN?: string;

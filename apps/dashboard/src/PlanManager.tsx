@@ -40,10 +40,10 @@ export function PlanManager() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-            {status.plan === 'pro' ? 'Pro Plan' : status.plan === 'self' ? 'Self-Hosted' : 'Free Plan'}
+            {status.plan === 'pro' ? 'Pro 套餐' : status.plan === 'self' ? '自托管' : '免费套餐'}
           </h3>
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-            {status.used} / {status.limit} emails this month
+            本月已发送 {status.used} / {status.limit} 封
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export function PlanManager() {
             disabled={loading}
             style={{ width: 'auto', padding: '8px 20px' }}
           >
-            {loading ? 'Loading...' : 'Upgrade to Pro'}
+            {loading ? '处理中...' : '升级到 Pro'}
           </button>
         )}
 
@@ -74,7 +74,7 @@ export function PlanManager() {
 
       {status.plan === 'free' && !status.stripePriceId && (
         <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
-          Billing is not configured. Set STRIPE_SECRET_KEY and STRIPE_PRO_PRICE_ID to enable upgrades.
+          尚未配置计费功能。请设置 STRIPE_SECRET_KEY 和 STRIPE_PRO_PRICE_ID 以启用升级。
         </p>
       )}
     </div>

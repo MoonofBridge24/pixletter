@@ -10,11 +10,17 @@ import type { Env } from '../lib/types';
 const app = new Hono<{ Bindings: Env }>();
 
 /**
- * メール作成直後のピクセル取得は「開封」と数えない（30秒の猶予）。
+ * メール作成直後のピクセル取得は「開封」と数えない（デフォルト10秒の猶予）。
  * Gmail の画像プロキシやメールクライアントのプレビューが、
  * 送信直後にピクセルを 2 回取得して二重既読になるのを防ぐ。
+ * env OPEN_GRACE_MS (ミリ秒) で変更可能。
  */
-export const OPEN_GRACE_MS = 30_000;
+export const DEFAULT_OPEN_GRACE_MS = 10_000;
+
+function envGraceMs(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_OPEN_GRACE_MS;
+}
 
 /**
  * ピクセル開封ハンドラ（共通ロジック）。
@@ -40,8 +46,9 @@ async function handlePixel(c: any) {
       ? email.createdAt.getTime()
       : Number(email.createdAt);
 
-    // 作成から30秒以内のアクセスは既読にしない（推送もしない）
-    if (Number.isFinite(createdAt) && Date.now() - createdAt < OPEN_GRACE_MS) {
+    // 作成から猶予期間内（デフォルト10秒）のアクセスは既読にしない（推送もしない）
+    const graceMs = envGraceMs(c.env.OPEN_GRACE_MS);
+    if (Number.isFinite(createdAt) && Date.now() - createdAt < graceMs) {
       return gifResponse();
     }
 

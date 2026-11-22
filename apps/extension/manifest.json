@@ -2,13 +2,17 @@
   "manifest_version": 3,
   "name": "pixletter",
   "version": "0.1.0",
-  "description": "Open-source email tracking for Gmail. Track opens and clicks, $0/month.",
+  "description": "开源的 Gmail / QQ 邮箱邮件追踪工具。记录打开与点击，每月 $0。",
   "permissions": [
     "storage",
     "activeTab"
   ],
   "host_permissions": [
     "https://mail.google.com/*",
+    "https://mail.qq.com/*",
+    "https://*.mail.qq.com/*",
+    "https://wx.mail.qq.com/*",
+    "https://*.pages.dev/*",
     "https://*.workers.dev/*",
     "http://localhost:8787/*"
   ],
@@ -18,10 +22,16 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://mail.google.com/*"],
+      "matches": [
+        "https://mail.google.com/*",
+        "https://mail.qq.com/*",
+        "https://*.mail.qq.com/*",
+        "https://wx.mail.qq.com/*"
+      ],
       "js": ["src/content.js"],
       "css": ["src/content.css"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "action": {

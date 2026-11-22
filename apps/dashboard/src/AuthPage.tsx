@@ -37,7 +37,7 @@ export function AuthPage({ onAuth }: Props) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as Record<string, string>).message || `Error: ${res.status}`);
+        throw new Error((data as Record<string, string>).message || `错误：${res.status}`);
       }
 
       const data = await res.json() as { token?: string };
@@ -47,7 +47,7 @@ export function AuthPage({ onAuth }: Props) {
 
       onAuth();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setError(err instanceof Error ? err.message : '出错了，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ export function AuthPage({ onAuth }: Props) {
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>📬</div>
         <h1 style={{ fontSize: 20, fontWeight: 500 }}>
-          {mode === 'signup' ? 'Create Account' : 'Sign In'}
+          {mode === 'signup' ? '创建账号' : '登录'}
         </h1>
       </div>
 
@@ -67,14 +67,14 @@ export function AuthPage({ onAuth }: Props) {
           {mode === 'signup' && (
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                Name
+                名称
               </label>
               <input
                 className="search-bar"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder="你的名字"
                 style={{ marginBottom: 0 }}
               />
             </div>
@@ -82,7 +82,7 @@ export function AuthPage({ onAuth }: Props) {
 
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-              Email
+              邮箱
             </label>
             <input
               className="search-bar"
@@ -97,14 +97,14 @@ export function AuthPage({ onAuth }: Props) {
 
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-              Password
+              密码
             </label>
             <input
               className="search-bar"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 8 characters"
+              placeholder="至少 8 个字符"
               required
               minLength={8}
               style={{ marginBottom: 0 }}
@@ -118,12 +118,12 @@ export function AuthPage({ onAuth }: Props) {
           )}
 
           <button className="btn" type="submit" disabled={loading} style={{ marginBottom: 12 }}>
-            {loading ? 'Loading...' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+            {loading ? '处理中...' : mode === 'signup' ? '创建账号' : '登录'}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', margin: '12px 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-          or
+          或
         </div>
 
         <a
@@ -138,22 +138,22 @@ export function AuthPage({ onAuth }: Props) {
             textDecoration: 'none',
           }}
         >
-          Continue with Google
+          使用 Google 继续
         </a>
 
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
           {mode === 'login' ? (
             <>
-              Don&apos;t have an account?{' '}
+              还没有账号？{' '}
               <a href="#" onClick={(e) => { e.preventDefault(); setMode('signup'); }}>
-                Sign up
+                立即注册
               </a>
             </>
           ) : (
             <>
-              Already have an account?{' '}
+              已有账号？{' '}
               <a href="#" onClick={(e) => { e.preventDefault(); setMode('login'); }}>
-                Sign in
+                去登录
               </a>
             </>
           )}

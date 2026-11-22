@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>pixletter Settings</title>
+  <title>pixletter 设置</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       width: 320px;
-      font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Google Sans', 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       font-size: 13px;
       color: #202124;
       padding: 16px;
@@ -122,23 +122,23 @@
   <h1><span class="logo">📬</span> pixletter</h1>
 
   <div class="field">
-    <label>API URL</label>
-    <input type="url" id="apiUrl" placeholder="https://pixletter-api.kame-lift.workers.dev">
+    <label>API 地址</label>
+    <input type="url" id="apiUrl" placeholder="https://pixletter.pages.dev">
   </div>
 
   <div class="field">
-    <label>API Key (optional)</label>
-    <input type="text" id="apiKey" placeholder="Bearer token">
+    <label>API 密钥（可选）</label>
+    <input type="text" id="apiKey" placeholder="Bearer 令牌">
   </div>
 
   <div class="field">
-    <label>Server酱³ SendKey (optional)</label>
+    <label>Server酱³ SendKey（可选）</label>
     <input type="text" id="serverchanSendkey" placeholder="sctp123456t..." autocomplete="off" spellcheck="false">
     <div class="hint">已读时推送。在 <a href="https://sc3.ft07.com" target="_blank" rel="noopener">sc3.ft07.com</a> 登录后复制 SendKey（也可直接粘贴 SendKey 页面给出的完整链接）。</div>
   </div>
 
   <div class="toggle-field">
-    <label>Track emails by default</label>
+    <label>默认开启邮件追踪</label>
     <label class="switch">
       <input type="checkbox" id="trackByDefault" checked>
       <span class="slider"></span>
@@ -146,14 +146,14 @@
   </div>
 
   <div class="toggle-field">
-    <label>Show opt-out footer in emails</label>
+    <label>在邮件中显示退订页脚</label>
     <label class="switch">
       <input type="checkbox" id="showOptoutFooter">
       <span class="slider"></span>
     </label>
   </div>
 
-  <button class="btn" id="save">Save Settings</button>
+  <button class="btn" id="save">保存设置</button>
   <div class="status" id="status"></div>
 
   <script src="popup.js"></script>

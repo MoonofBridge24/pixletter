@@ -16,7 +16,14 @@ import type { Env } from '../lib/types';
 
 /** Sign up 後 24h は送信上限を制限（ADR-003 §4） */
 const NEWBIE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const NEWBIE_LIMIT = 10;
+/** 新規アカウントの 24h 上限デフォルト。env NEW_USER_EMAIL_LIMIT で上書き可能。 */
+export const DEFAULT_NEW_USER_LIMIT = 100;
+
+/** env 値をパースする（正数以外はデフォルトにフォールバック） */
+function envPositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
 
 const app = new Hono<{
   Bindings: Env;
@@ -98,10 +105,12 @@ app.post('/', async (c) => {
   }
 
   // Sign up 後 24h 制限（ADR-003 §4: 新規アカウント abuse 対策）
+  // デフォルト 100 通、Pages ダッシュボードの NEW_USER_EMAIL_LIMIT で変更可能。
+  const newbieLimit = envPositiveInt(c.env.NEW_USER_EMAIL_LIMIT, DEFAULT_NEW_USER_LIMIT);
   const effectiveLimit =
     tenant.createdAt &&
     now.getTime() - tenant.createdAt.getTime() < NEWBIE_WINDOW_MS
-      ? Math.min(NEWBIE_LIMIT, tenant.monthlyEmailLimit)
+      ? Math.min(newbieLimit, tenant.monthlyEmailLimit)
       : tenant.monthlyEmailLimit;
 
   if (tenant.monthlyEmailCount >= effectiveLimit) {
@@ -187,7 +196,7 @@ app.post('/', async (c) => {
       pixelUrl: `${baseUrl}/i/${trackingId}.gif`,
       optoutUrl,
       optoutHtml: `<div style="font-size:11px;color:#999;margin-top:16px;border-top:1px solid #eee;padding-top:8px;">` +
-        `<a href="${optoutUrl}" style="color:#999;">Unsubscribe from tracking</a></div>`,
+        `<a href="${optoutUrl}" style="color:#999;">退订邮件追踪</a></div>`,
       // forceOptoutFooter: isHosted, // FR-P3-10: hosted版ではフッター強制
       links: trackedLinks,
     },

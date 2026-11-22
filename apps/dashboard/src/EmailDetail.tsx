@@ -18,57 +18,57 @@ export function EmailDetailView({ emailId, onBack }: Props) {
       .finally(() => setLoading(false));
   }, [emailId]);
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (loading) return <div className="loading">加载中...</div>;
+  if (error) return <div className="error">错误：{error}</div>;
   if (!email) return null;
 
   return (
     <>
       <a className="back-link" href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>
-        &larr; Back to list
+        &larr; 返回列表
       </a>
 
       <div className="card">
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>
-          {email.subject || '(no subject)'}
+          {email.subject || '（无主题）'}
         </h2>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-          To: {email.recipient} &middot; Sent: {new Date(email.sentAt).toLocaleString()}
+          收件人：{email.recipient} &middot; 发送时间：{new Date(email.sentAt).toLocaleString('zh-CN')}
         </div>
 
         <div className="stats-grid" style={{ marginBottom: 0 }}>
           <div className="stat-card">
             <div className="value">{email.openCount}</div>
-            <div className="label">Opens</div>
+            <div className="label">打开次数</div>
           </div>
           <div className="stat-card">
             <div className="value">
               {email.links.reduce((sum, l) => sum + l.clickCount, 0)}
             </div>
-            <div className="label">Clicks</div>
+            <div className="label">点击次数</div>
           </div>
           <div className="stat-card">
             <div className="value">{email.links.length}</div>
-            <div className="label">Tracked Links</div>
+            <div className="label">追踪链接</div>
           </div>
         </div>
       </div>
 
       {/* FR-DASH-02: 開封タイムライン */}
       <div className="card">
-        <h3 style={{ fontSize: 14, marginBottom: 12 }}>Open Timeline</h3>
+        <h3 style={{ fontSize: 14, marginBottom: 12 }}>打开时间线</h3>
         {email.opens.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            No opens recorded yet
+            暂无打开记录
           </div>
         ) : (
           <ul className="timeline">
             {email.opens.map((open) => (
               <li key={open.id}>
-                <strong>{new Date(open.openedAt).toLocaleString()}</strong>
+                <strong>{new Date(open.openedAt).toLocaleString('zh-CN')}</strong>
                 {open.isGmailProxy && (
                   <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
-                    (Gmail Image Proxy)
+                    （Gmail 图片代理）
                   </span>
                 )}
                 {open.userAgent && (
@@ -85,13 +85,13 @@ export function EmailDetailView({ emailId, onBack }: Props) {
       {/* Links */}
       {email.links.length > 0 && (
         <div className="card">
-          <h3 style={{ fontSize: 14, marginBottom: 12 }}>Tracked Links</h3>
+          <h3 style={{ fontSize: 14, marginBottom: 12 }}>追踪链接</h3>
           <table className="email-table">
             <thead>
               <tr>
                 <th>URL</th>
-                <th>Label</th>
-                <th>Clicks</th>
+                <th>标签</th>
+                <th>点击次数</th>
               </tr>
             </thead>
             <tbody>
@@ -119,6 +119,6 @@ function summarizeUA(ua: string): string {
   if (ua.includes('Firefox')) return 'Firefox';
   if (ua.includes('Safari')) return 'Safari';
   if (ua.includes('Outlook')) return 'Outlook';
-  if (ua.includes('GoogleImageProxy')) return 'Gmail Image Proxy';
+  if (ua.includes('GoogleImageProxy')) return 'Gmail 图片代理';
   return ua.slice(0, 60);
 }

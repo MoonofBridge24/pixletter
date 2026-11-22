@@ -162,6 +162,8 @@ Set these as **Environment variables** in the Pages project dashboard
 | `ALLOW_SIGNUP` | No | Set to `true` to allow new signups (fail-closed) |
 | `ALLOWED_ORIGINS` | No | Comma-separated allowed CORS origins (for the Chrome extension) |
 | `PIXEL_DOMAIN` | No | Custom domain for pixel URLs |
+| `NEW_USER_EMAIL_LIMIT` | No | Max emails in the first 24h after signup (abuse protection). Default `100`. |
+| `OPEN_GRACE_MS` | No | Ignore opens within this many ms of email creation (prefetch protection). Default `10000` (10s). |
 
 Open notifications use **Server酱³** ([sc3.ft07.com](https://sc3.ft07.com)),
 not the older Server酱 Turbo (sct.ftqq.com). Get a SendKey from that site —
@@ -169,8 +171,9 @@ it has the form `sctp{uid}t...`. Each user can paste it into the Chrome
 extension settings (a full SendKey-page URL also works); it is saved on the
 backend and used for that user's open pushes. Optionally set
 `SERVERCHAN_SENDKEY` as a project secret for a shared fallback key.
-Opens within 30 seconds of email creation are ignored (client/preview
-prefetch protection), and pushes are throttled to 1/hour per email.
+Opens within 10 seconds of email creation are ignored by default (client/preview
+prefetch protection; tune with `OPEN_GRACE_MS`), and pushes are throttled to
+1/hour per email.
 
 Secrets go on the **Pages project** (not a Worker). Generate a secret and set
 each one — if `BETTER_AUTH_SECRET` is missing, **every `/api/auth/*` request

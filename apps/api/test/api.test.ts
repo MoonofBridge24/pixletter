@@ -34,7 +34,7 @@ async function createTestEmail(
   recipient = 'test@example.com',
   opts: { subject?: string; urls?: Array<{ url: string; label?: string }> } = {},
 ) {
-  // 24h 新規アカウント制限（10通）で後続テストが 429 にならないようリセット
+  // 24h 新規アカウント制限（デフォルト100通）で後続テストが 429 にならないようリセット
   await env.DB.prepare(`UPDATE tenants SET monthly_email_count = 0 WHERE id = 'self'`).run();
 
   const res = await request('/api/emails', {
@@ -165,7 +165,7 @@ describe('pixletter API', () => {
     expect(res.status).toBe(200);
   });
 
-  it('does not count opens within 30s of email creation', async () => {
+  it('does not count opens within the grace period (default 10s) of email creation', async () => {
     const email = await createTestEmail('grace-new@example.com');
     await request(`/pixel/${email.trackingId}.gif`);
     const row = await env.DB.prepare(
@@ -174,9 +174,9 @@ describe('pixletter API', () => {
     expect(row?.n).toBe(0);
   });
 
-  it('counts opens after the 30s grace period', async () => {
+  it('counts opens after the grace period', async () => {
     const email = await createTestEmail('grace-old@example.com');
-    // 61 秒前に作成されたことにする
+    // 61 秒前に作成されたことにする（デフォルト10秒の猶予を確実に超える）
     await env.DB.prepare(`UPDATE emails SET created_at = unixepoch() - 61 WHERE id = ?`)
       .bind(email.id).run();
 
@@ -300,7 +300,7 @@ describe('pixletter API', () => {
   it('POST /api/emails returns optoutUrl and optoutHtml', async () => {
     const body = await createTestEmail('opturl@example.com');
     expect(body.optoutUrl).toContain('/optout/');
-    expect(body.optoutHtml).toContain('Unsubscribe from tracking');
+    expect(body.optoutHtml).toContain('退订邮件追踪');
   });
 
   it('GET /optout/:emailId shows opt-out page', async () => {
@@ -308,7 +308,7 @@ describe('pixletter API', () => {
     const res = await request(`/optout/${email.id}`);
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('Stop Tracking My Emails');
+    expect(html).toContain('停止追踪我的邮件');
   });
 
   it('POST /optout/:emailId executes opt-out and GET shows already opted out', async () => {
@@ -316,13 +316,13 @@ describe('pixletter API', () => {
     const res = await request(`/optout/${email.id}`, { method: 'POST' });
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('successfully opted out');
+    expect(html).toContain('退订成功');
 
-    // After opt-out, GET should show "Already Opted Out"
+    // After opt-out, GET should show "已退订"
     const res2 = await request(`/optout/${email.id}`);
     expect(res2.status).toBe(200);
     const html2 = await res2.text();
-    expect(html2).toContain('Already Opted Out');
+    expect(html2).toContain('已退订');
   });
 
   it('GET /optout/nonexistent returns 404', async () => {
@@ -335,8 +335,8 @@ describe('pixletter API', () => {
     const res = await request('/privacy');
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('Privacy Policy');
-    expect(html).toContain('Opt-Out');
+    expect(html).toContain('隐私政策');
+    expect(html).toContain('退订 / 移除追踪');
   });
 
   // Monthly send limit (FR-P2-02)
@@ -368,8 +368,8 @@ describe('pixletter API', () => {
     const res = await request('/terms');
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('利用規約');
-    expect(html).toContain('特定電子メール');
+    expect(html).toContain('服务条款');
+    expect(html).toContain('特定电子邮件');
   });
 
   // Account usage

@@ -32,7 +32,7 @@ document.getElementById('save').addEventListener('click', async () => {
   await chrome.storage.sync.set(config);
 
   const status = document.getElementById('status');
-  status.textContent = 'Settings saved!';
+  status.textContent = '设置已保存！';
   status.className = 'status status--ok';
 
   if (!config.apiUrl) {
@@ -50,10 +50,10 @@ document.getElementById('save').addEventListener('click', async () => {
     const res = await fetch(`${config.apiUrl}/health`, { headers });
     if (res.ok) {
       status.textContent = config.serverchanSendkey
-        ? 'Settings saved! API connected. SendKey synced.'
-        : 'Settings saved! API connected.';
+        ? '设置已保存！API 已连接，SendKey 已同步。'
+        : '设置已保存！API 已连接。';
     } else {
-      status.textContent = `Settings saved. API returned ${res.status}.`;
+      status.textContent = `设置已保存。API 返回 ${res.status}。`;
       status.className = 'status status--err';
     }
 
@@ -64,11 +64,11 @@ document.getElementById('save').addEventListener('click', async () => {
       body: JSON.stringify({ sendkey: config.serverchanSendkey }),
     });
     if (!pushRes.ok && pushRes.status !== 404) {
-      status.textContent += ' SendKey sync failed.';
+      status.textContent += ' SendKey 同步失败。';
       status.className = 'status status--err';
     }
   } catch (e) {
-    status.textContent = `Settings saved. API unreachable: ${e.message}`;
+    status.textContent = `设置已保存。无法连接 API：${e.message}`;
     status.className = 'status status--err';
   }
 

@@ -52,13 +52,13 @@ export async function fetchEmails(
   offset = 0,
 ): Promise<PaginatedResponse<EmailSummary>> {
   const res = await authFetch(`/api/emails?limit=${limit}&offset=${offset}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(`接口错误：${res.status}`);
   return res.json() as Promise<PaginatedResponse<EmailSummary>>;
 }
 
 export async function fetchEmailDetail(id: string): Promise<EmailDetail> {
   const res = await authFetch(`/api/emails/${id}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(`接口错误：${res.status}`);
   return res.json() as Promise<EmailDetail>;
 }
 

@@ -1,4 +1,4 @@
-/* pixletter: Gmail Compose 画面のトラッキングトグル */
+/* pixletter: Gmail / QQメール Compose 画面のトラッキングトグル */
 
 .mt-track-toggle {
   display: inline-flex;
@@ -8,7 +8,7 @@
   margin-left: 8px;
   border-radius: 16px;
   font-size: 12px;
-  font-family: 'Google Sans', Roboto, sans-serif;
+  font-family: 'Google Sans', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   cursor: pointer;
   user-select: none;
   transition: background-color 0.2s, color 0.2s;

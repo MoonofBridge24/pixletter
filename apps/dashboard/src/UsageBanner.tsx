@@ -28,10 +28,10 @@ export function UsageBanner() {
     <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 500 }}>
-          Monthly Usage ({usage.plan})
+          本月用量（{usage.plan}）
         </span>
         <span style={{ fontSize: 12, color: isOver ? '#dc2626' : isWarning ? '#d97706' : 'var(--text-secondary)' }}>
-          {usage.monthlyEmailCount} / {usage.monthlyEmailLimit} emails
+          {usage.monthlyEmailCount} / {usage.monthlyEmailLimit} 封
         </span>
       </div>
       <div style={{
@@ -50,7 +50,7 @@ export function UsageBanner() {
       </div>
       {usage.resetAt && (
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-          Resets {new Date(usage.resetAt).toLocaleDateString()}
+          重置时间：{new Date(usage.resetAt).toLocaleDateString('zh-CN')}
         </div>
       )}
     </div>

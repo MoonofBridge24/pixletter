@@ -42,8 +42,8 @@ export function EmailList({ onSelect }: Props) {
     };
   }, [emails]);
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (loading) return <div className="loading">加载中...</div>;
+  if (error) return <div className="error">错误：{error}</div>;
 
   return (
     <>
@@ -51,19 +51,19 @@ export function EmailList({ onSelect }: Props) {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="value">{stats.total}</div>
-          <div className="label">Total Sent</div>
+          <div className="label">发送总数</div>
         </div>
         <div className="stat-card">
           <div className="value">{stats.opened}</div>
-          <div className="label">Opened</div>
+          <div className="label">已打开</div>
         </div>
         <div className="stat-card">
           <div className="value">{stats.openRate}%</div>
-          <div className="label">Open Rate</div>
+          <div className="label">打开率</div>
         </div>
         <div className="stat-card">
           <div className="value">{stats.clickRate}%</div>
-          <div className="label">Click Rate</div>
+          <div className="label">点击率</div>
         </div>
       </div>
 
@@ -71,7 +71,7 @@ export function EmailList({ onSelect }: Props) {
       <input
         className="search-bar"
         type="text"
-        placeholder="Search by subject, recipient, or tag..."
+        placeholder="按主题、收件人或标签搜索..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -81,12 +81,12 @@ export function EmailList({ onSelect }: Props) {
         <table className="email-table">
           <thead>
             <tr>
-              <th>Status</th>
-              <th>Recipient</th>
-              <th>Subject</th>
-              <th>Opens</th>
-              <th>Clicks</th>
-              <th>Sent</th>
+              <th>状态</th>
+              <th>收件人</th>
+              <th>主题</th>
+              <th>打开次数</th>
+              <th>点击次数</th>
+              <th>发送时间</th>
             </tr>
           </thead>
           <tbody>
@@ -100,11 +100,11 @@ export function EmailList({ onSelect }: Props) {
                   <span
                     className={`badge ${email.openCount > 0 ? 'badge--opened' : 'badge--pending'}`}
                   >
-                    {email.openCount > 0 ? 'Opened' : 'Pending'}
+                    {email.openCount > 0 ? '已打开' : '待查看'}
                   </span>
                 </td>
                 <td>{email.recipient}</td>
-                <td>{email.subject || '(no subject)'}</td>
+                <td>{email.subject || '（无主题）'}</td>
                 <td>{email.openCount}</td>
                 <td>{email.clickCount}</td>
                 <td>{formatDate(email.sentAt)}</td>
@@ -113,7 +113,7 @@ export function EmailList({ onSelect }: Props) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  No emails found
+                  暂无邮件
                 </td>
               </tr>
             )}
@@ -129,10 +129,10 @@ function formatDate(iso: string): string {
   const now = new Date();
   const diff = now.getTime() - d.getTime();
 
-  if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  if (diff < 60_000) return '刚刚';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)} 天前`;
 
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
 }

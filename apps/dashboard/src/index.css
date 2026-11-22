@@ -20,7 +20,7 @@
 }
 
 body {
-  font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Google Sans', 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;

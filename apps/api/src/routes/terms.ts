@@ -10,70 +10,70 @@ const app = new Hono<{ Bindings: Env }>();
  */
 app.get('/', (c) => {
   return c.html(`<!DOCTYPE html>
-<html lang="ja">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>利用規約 / Terms of Service — pixletter</title>
+<title>服务条款 — pixletter</title>
 <style>
-body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#333;line-height:1.6;}
+body{font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#333;line-height:1.6;}
 h1{font-size:1.5rem;} h2{font-size:1.2rem;margin-top:2rem;}
 a{color:#2563eb;}
 </style>
 </head>
 <body>
-<h1>利用規約 / Terms of Service</h1>
-<p><strong>最終更新:</strong> 2026年5月</p>
+<h1>服务条款</h1>
+<p><strong>最后更新：</strong>2026 年 5 月</p>
 
-<h2>1. サービス概要</h2>
-<p>pixletter（以下「本サービス」）は、Gmail 送信メールの開封・クリック追跡機能を提供するオープンソースサービスです。</p>
+<h2>1. 服务概述</h2>
+<p>pixletter（以下简称"本服务"）是一个开源的邮件追踪服务，提供 Gmail 发送邮件的打开与点击追踪功能。</p>
 
-<h2>2. 利用条件</h2>
+<h2>2. 使用条件</h2>
 <ul>
-<li>本サービスを利用するには、18歳以上であること。</li>
-<li>スパム送信、フィッシング、その他の違法目的での利用を禁止します。</li>
-<li>受信者の opt-out（追跡停止）リクエストを尊重すること。</li>
+<li>使用本服务须年满 18 周岁。</li>
+<li>禁止将本服务用于发送垃圾邮件、钓鱼或其他违法目的。</li>
+<li>必须尊重收件人的退订（停止追踪）请求。</li>
 </ul>
 
-<h2>3. 特定電子メール法に関する表示</h2>
-<p>本サービスの利用にあたり、ユーザーは以下の日本法を遵守する必要があります。</p>
+<h2>3. 关于《特定电子邮件法》的说明</h2>
+<p>使用本服务时，用户须遵守以下日本法律：</p>
 <ul>
-<li><strong>特定電子メールの送信の適正化等に関する法律</strong>（特定電子メール法）</li>
-<li>受信者の同意なく広告・宣伝目的のメールを送信することは禁止されています。</li>
-<li>送信するメールには、送信者の氏名・名称、連絡先、及び受信拒否の通知先を明記してください。</li>
+<li><strong>《关于规范特定电子邮件发送等的法律》</strong>（特定电子邮件法）</li>
+<li>未经收件人同意，禁止发送以广告、宣传为目的的邮件。</li>
+<li>发送的邮件中须注明发件人的姓名 / 名称、联系方式，以及拒收通知的受理方式。</li>
 </ul>
 
-<h2>4. 送信者の義務</h2>
-<p>本サービスを通じてメール追跡を行うユーザー（送信者）は、以下の義務を負います:</p>
+<h2>4. 发件人的义务</h2>
+<p>通过本服务进行邮件追踪的用户（发件人）须履行以下义务：</p>
 <ul>
-<li>トラッキングピクセルを含むメールを送信する際、受信者に追跡を行っていることを適切に開示すること。</li>
-<li>受信者がオプトアウト（追跡停止）を希望した場合、速やかにこれを尊重すること。</li>
-<li>本サービスが自動挿入する opt-out リンクを改変・削除しないこと。</li>
+<li>发送含有追踪像素的邮件时，须向收件人充分告知正在进行追踪。</li>
+<li>收件人表示希望退订（停止追踪）时，须立即予以尊重。</li>
+<li>不得篡改或删除本服务自动插入的退订链接。</li>
 </ul>
 
-<h2>5. 免責事項</h2>
+<h2>5. 免责声明</h2>
 <ul>
-<li>本サービスは「現状のまま（AS IS）」で提供されます。</li>
-<li>サービスの中断、データの損失について、運営者は責任を負いません。</li>
-<li>無料プランの範囲内でサービスを提供しており、SLA は保証しません。</li>
+<li>本服务按"现状（AS IS）"提供。</li>
+<li>对于服务中断、数据丢失，运营方不承担责任。</li>
+<li>本服务在免费套餐范围内提供，不保证 SLA（服务等级协议）。</li>
 </ul>
 
-<h2>6. アカウント停止</h2>
-<p>以下の場合、アカウントを自動的に停止します:</p>
+<h2>6. 账号停用</h2>
+<p>以下情况将自动停用账号：</p>
 <ul>
-<li>受信者からの opt-out リクエストが 10 件を超えた場合（abuse 対策）。</li>
-<li>スパム行為やその他の規約違反が検知された場合。</li>
+<li>收到的退订请求超过 10 次时（防滥用措施）。</li>
+<li>检测到垃圾邮件行为或其他违反本条款的行为时。</li>
 </ul>
 
-<h2>7. 準拠法</h2>
-<p>本規約は日本法に準拠し、東京地方裁判所を第一審の専属管轄裁判所とします。</p>
+<h2>7. 适用法律</h2>
+<p>本条款适用日本法律，并以东京地方法院为第一审的专属管辖法院。</p>
 
-<h2>8. 連絡先</h2>
-<p>Operator: kame_lift (@kame__lift)<br>
-Email: <strong>support@example.com</strong></p>
+<h2>8. 联系方式</h2>
+<p>运营者：kame_lift（@kame__lift）<br>
+邮箱：<strong>support@example.com</strong></p>
 
 <p style="margin-top:32px;font-size:12px;color:#999;">
-<a href="/privacy">Privacy Policy</a> · <a href="/">Home</a></p>
+<a href="/privacy">隐私政策</a> · <a href="/">首页</a></p>
 </body>
 </html>`);
 });
