@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pixletter-db"
-database_id = "aaa3d316-ff69-42d2-aee0-fbcc42a3c32c"
+database_id = "1f8e0193-7069-4c83-a04c-252a30585187"
 
 # 環境変数（公開しても安全なもの）
 [vars]
