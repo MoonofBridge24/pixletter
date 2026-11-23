@@ -1,4 +1,4 @@
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, count } from 'drizzle-orm';
 import { opens, emails, users } from '@pixletter/db';
 import type { Database } from './db';
 import { isValidSendkey, normalizeSendkey, serverchanEndpoint } from './sendkey';
@@ -68,6 +68,14 @@ export async function notifyOpen(
   // 今回の INSERT で 1 件。既に 2 件以上なら抑制
   if (recentOpens.length > 1) return;
 
+  // このメールが累計で何回開封されたか（今回の INSERT 済みなので、今回を含む）
+  const totalRow = await db
+    .select({ total: count() })
+    .from(opens)
+    .where(eq(opens.emailId, emailId))
+    .get();
+  const openCount = Number(totalRow?.total ?? 0);
+
   const subject = (email.subject || '(no subject)').replace(/[\r\n]+/g, ' ').slice(0, 100);
   const title = `📬 邮件已读：${subject}`;
   const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
@@ -75,6 +83,8 @@ export async function notifyOpen(
     `**主题：** ${subject}`,
     '',
     `**收件人：** ${email.recipient}`,
+    '',
+    `**查看次数：** 第 ${openCount} 次`,
     '',
     `**时间：** ${time}`,
   ].join('\n');

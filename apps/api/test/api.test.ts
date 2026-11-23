@@ -50,12 +50,14 @@ async function applyMigrations(db: D1Database) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY, name TEXT, plan TEXT NOT NULL DEFAULT 'self', monthly_email_limit INTEGER NOT NULL DEFAULT 500, monthly_email_count INTEGER NOT NULL DEFAULT 0, reset_at INTEGER NOT NULL DEFAULT (unixepoch() + 2592000), is_suspended INTEGER DEFAULT 0, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email TEXT NOT NULL UNIQUE, name TEXT, oauth_provider TEXT, oauth_id TEXT, serverchan_sendkey TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()), updated_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
-    `CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL, tracking_id TEXT NOT NULL UNIQUE, subject TEXT, recipient TEXT NOT NULL, recipient_name TEXT, gmail_message_id TEXT, thread_id TEXT, tag TEXT, sent_at INTEGER NOT NULL DEFAULT (unixepoch()), created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
+    `CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL, tracking_id TEXT NOT NULL UNIQUE, subject TEXT, recipient TEXT NOT NULL, recipient_name TEXT, gmail_message_id TEXT, thread_id TEXT, tag TEXT, sent_at INTEGER NOT NULL DEFAULT (unixepoch()), tracking_stopped_at INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS opens (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, user_agent TEXT, ip_hash TEXT, is_gmail_proxy INTEGER DEFAULT 0, opened_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, tracking_id TEXT NOT NULL UNIQUE, original_url TEXT NOT NULL, label TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS clicks (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, link_id TEXT NOT NULL REFERENCES links(id) ON DELETE CASCADE, user_agent TEXT, ip_hash TEXT, clicked_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS optouts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, recipient_email TEXT NOT NULL, reason TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
+    `CREATE TABLE IF NOT EXISTS api_keys (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, key_hash TEXT NOT NULL UNIQUE, key_prefix TEXT NOT NULL, name TEXT, last_used_at INTEGER, expires_at INTEGER, is_revoked INTEGER DEFAULT 0, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit) VALUES ('self', 'Self', 'self', 100000)`,
+    `INSERT OR IGNORE INTO users (id, tenant_id, email, name) VALUES ('self', 'self', 'self@localhost', 'Self User')`,
   ];
   for (const stmt of statements) {
     await db.prepare(stmt).run();
@@ -225,6 +227,103 @@ describe('pixletter API', () => {
       `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
     ).bind(email.id).first<{ n: number }>();
     expect(row?.n).toBe(1);
+  });
+
+  // Manual stop-tracking
+  it('POST /api/emails/:id/stop-tracking stops recording but still serves the pixel', async () => {
+    const email = await createTestEmail('stop-open@example.com', {
+      urls: [{ url: 'https://stop-target.com' }],
+    });
+    // 猶予期間を超えさせる（停止判定とは別）
+    await env.DB.prepare(`UPDATE emails SET created_at = unixepoch() - 61 WHERE id = ?`)
+      .bind(email.id).run();
+
+    const stopRes = await request(`/api/emails/${email.id}/stop-tracking`, { method: 'POST' });
+    expect(stopRes.status).toBe(200);
+    const stopBody = await stopRes.json<{
+      trackingActive: boolean;
+      trackingReason: string;
+      trackingStoppedAt: string | null;
+    }>();
+    expect(stopBody.trackingActive).toBe(false);
+    expect(stopBody.trackingReason).toBe('manual');
+    expect(stopBody.trackingStoppedAt).not.toBeNull();
+
+    // ピクセルは通常どおり透明 GIF を返す
+    const pixel = await request(`/pixel/${email.trackingId}.gif`);
+    expect(pixel.status).toBe(200);
+    expect(pixel.headers.get('Content-Type')).toBe('image/gif');
+
+    // ただし開封は記録されない
+    const openRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(openRow?.n).toBe(0);
+
+    // リンクは 302 で元 URL に飛ぶが、クリックも記録されない
+    const linkId = email.links[0]?.trackingUrl.split('/r/')[1] ?? '';
+    const redirectRes = await request(`/r/${linkId}`, { redirect: 'manual' });
+    expect(redirectRes.status).toBe(302);
+    expect(redirectRes.headers.get('Location')).toBe('https://stop-target.com');
+
+    const clickRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM clicks WHERE link_id IN (SELECT id FROM links WHERE email_id = ?)`
+    ).bind(email.id).first<{ n: number }>();
+    expect(clickRow?.n).toBe(0);
+  });
+
+  it('POST /api/emails/:id/stop-tracking is idempotent and 404s for unknown email', async () => {
+    const email = await createTestEmail('stop-idem@example.com');
+
+    const first = await request(`/api/emails/${email.id}/stop-tracking`, { method: 'POST' });
+    expect(first.status).toBe(200);
+    const firstBody = await first.json<{ trackingStoppedAt: string | null }>();
+
+    const second = await request(`/api/emails/${email.id}/stop-tracking`, { method: 'POST' });
+    expect(second.status).toBe(200);
+    const secondBody = await second.json<{ trackingStoppedAt: string | null }>();
+    expect(secondBody.trackingStoppedAt).toBe(firstBody.trackingStoppedAt);
+
+    const missing = await request('/api/emails/nonexistent/stop-tracking', { method: 'POST' });
+    expect(missing.status).toBe(404);
+  });
+
+  it('stops tracking automatically 7 days after sending', async () => {
+    const email = await createTestEmail('ttl@example.com', {
+      urls: [{ url: 'https://ttl-target.com' }],
+    });
+    // 8 日前に送信したことにする（TTL 7 日を超える）
+    await env.DB.prepare(
+      `UPDATE emails SET sent_at = unixepoch() - 8 * 86400, created_at = unixepoch() - 8 * 86400 WHERE id = ?`
+    ).bind(email.id).run();
+
+    const pixel = await request(`/pixel/${email.trackingId}.gif`);
+    expect(pixel.status).toBe(200);
+
+    const openRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(openRow?.n).toBe(0);
+
+    // 一覧では expired として返る
+    const listRes = await request('/api/emails?limit=100');
+    const list = await listRes.json<{
+      data: Array<{ id: string; trackingActive: boolean; trackingReason: string }>;
+    }>();
+    const row = list.data.find((e) => e.id === email.id);
+    expect(row?.trackingActive).toBe(false);
+    expect(row?.trackingReason).toBe('expired');
+
+    // リンクは通常どおり遷移するが、クリックは記録しない
+    const linkId = email.links[0]?.trackingUrl.split('/r/')[1] ?? '';
+    const redirectRes = await request(`/r/${linkId}`, { redirect: 'manual' });
+    expect(redirectRes.status).toBe(302);
+    expect(redirectRes.headers.get('Location')).toBe('https://ttl-target.com');
+
+    const clickRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM clicks WHERE link_id IN (SELECT id FROM links WHERE email_id = ?)`
+    ).bind(email.id).first<{ n: number }>();
+    expect(clickRow?.n).toBe(0);
   });
 
   // Notification settings (SendKey)
@@ -503,5 +602,109 @@ describe('pixletter API', () => {
     expect(detail.id).toBe(email.id);
     expect(typeof detail.openCount).toBe('number');
     expect(detail.links).toHaveLength(1);
+  });
+
+  // API keys（密钥管理）
+  it('creates, lists, renames and revokes API keys', async () => {
+    const createRes = await request('/api/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '  工作电脑  ' }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json<{
+      id: string;
+      key: string;
+      prefix: string;
+      name: string;
+    }>();
+    expect(created.key.startsWith('mt_')).toBe(true);
+    expect(created.name).toBe('工作电脑'); // 名前は trim される
+    expect(created.prefix).toBe(created.key.slice(0, 7));
+
+    const listRes = await request('/api/keys');
+    expect(listRes.status).toBe(200);
+    const list = await listRes.json<{
+      data: Array<{ id: string; keyPrefix: string; name: string | null; isRevoked: boolean }>;
+      activeCount: number;
+      maxActive: number;
+    }>();
+    const found = list.data.find((k) => k.id === created.id);
+    expect(found).toBeDefined();
+    expect(found?.keyPrefix).toBe(created.prefix);
+    expect(found?.isRevoked).toBe(false);
+    expect(list.maxActive).toBeGreaterThan(0);
+    // 生キーは一覧に含まれない
+    expect(JSON.stringify(list)).not.toContain(created.key);
+
+    // 名前変更
+    const patchRes = await request(`/api/keys/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '笔记本' }),
+    });
+    expect(patchRes.status).toBe(200);
+    const afterRename = await (await request('/api/keys')).json<{
+      data: Array<{ id: string; name: string | null }>;
+    }>();
+    expect(afterRename.data.find((k) => k.id === created.id)?.name).toBe('笔记本');
+
+    // 空の名前は 400
+    const emptyRename = await request(`/api/keys/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '   ' }),
+    });
+    expect(emptyRename.status).toBe(400);
+
+    // 有効なキーは物理削除できない
+    const purgeActive = await request(`/api/keys/${created.id}?purge=1`, { method: 'DELETE' });
+    expect(purgeActive.status).toBe(400);
+
+    // 失効（冪等）
+    const revokeRes = await request(`/api/keys/${created.id}`, { method: 'DELETE' });
+    expect(revokeRes.status).toBe(200);
+    expect((await revokeRes.json<{ isRevoked: boolean }>()).isRevoked).toBe(true);
+
+    const revokeAgain = await request(`/api/keys/${created.id}`, { method: 'DELETE' });
+    expect(revokeAgain.status).toBe(200);
+
+    // 失効済みなら物理削除できる
+    const purgeRes = await request(`/api/keys/${created.id}?purge=1`, { method: 'DELETE' });
+    expect(purgeRes.status).toBe(200);
+    const afterPurge = await (await request('/api/keys')).json<{
+      data: Array<{ id: string }>;
+    }>();
+    expect(afterPurge.data.find((k) => k.id === created.id)).toBeUndefined();
+
+    // 存在しないキー
+    const missing = await request('/api/keys/nonexistent', { method: 'DELETE' });
+    expect(missing.status).toBe(404);
+  });
+
+  it('caps the number of active API keys', async () => {
+    // 上限まで生成
+    const created: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const res = await request('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `limit-${i}` }),
+      });
+      expect(res.status).toBe(201);
+      created.push((await res.json<{ id: string }>()).id);
+    }
+
+    const overflow = await request('/api/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'overflow' }),
+    });
+    expect(overflow.status).toBe(409);
+
+    // 後片付け（有効キーを失効）
+    for (const id of created) {
+      await request(`/api/keys/${id}`, { method: 'DELETE' });
+    }
   });
 });

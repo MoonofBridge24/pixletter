@@ -1,22 +1,34 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { fetchEmails, type EmailSummary } from './api';
+import React, { useState, useMemo } from 'react';
+import { stopTracking, type EmailSummary, type TrackingPatch } from './api';
 
 interface Props {
+  emails: EmailSummary[];
+  loading: boolean;
+  error: string | null;
+  search: string;
+  onSearchChange: (value: string) => void;
   onSelect: (id: string) => void;
+  /** 停止追踪成功后，把最新状态同步回上层（详情页也复用它） */
+  onStopped: (id: string, patch: TrackingPatch) => void;
+  /** 当前选中的邮件（紧凑列表用来高亮） */
+  selectedId?: string | null;
+  /** true = 详情页左侧的紧凑列表；false = 完整的邮件历史表格 */
+  sideBySide?: boolean;
 }
 
-export function EmailList({ onSelect }: Props) {
-  const [emails, setEmails] = useState<EmailSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    fetchEmails(100)
-      .then((res) => setEmails(res.data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+export function EmailList({
+  emails,
+  loading,
+  error,
+  search,
+  onSearchChange,
+  onSelect,
+  onStopped,
+  selectedId,
+  sideBySide = false,
+}: Props) {
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [stopping, setStopping] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     if (!search) return emails;
@@ -42,8 +54,75 @@ export function EmailList({ onSelect }: Props) {
     };
   }, [emails]);
 
+  async function handleStopTracking(e: React.MouseEvent, id: string) {
+    // 行クリック（詳細へ遷移）に伝播させない
+    e.stopPropagation();
+
+    setActionError(null);
+    setStopping((prev) => [...prev, id]);
+    try {
+      const res = await stopTracking(id);
+      onStopped(id, {
+        trackingActive: res.trackingActive,
+        trackingReason: res.trackingReason,
+        trackingStoppedAt: res.trackingStoppedAt,
+        trackingExpiresAt: res.trackingExpiresAt,
+      });
+    } catch (err) {
+      setActionError((err as Error).message);
+    } finally {
+      setStopping((prev) => prev.filter((x) => x !== id));
+    }
+  }
+
   if (loading) return <div className="loading">加载中...</div>;
   if (error) return <div className="error">错误：{error}</div>;
+
+  const searchBar = (
+    <input
+      className="search-bar"
+      type="text"
+      placeholder={sideBySide ? '搜索邮件...' : '按主题、收件人或标签搜索...'}
+      value={search}
+      onChange={(e) => onSearchChange(e.target.value)}
+    />
+  );
+
+  // 详情页左侧：紧凑列表，只负责切换，不放操作按钮
+  if (sideBySide) {
+    return (
+      <div className="mail-mini">
+        {searchBar}
+        <div className="mail-mini__count">
+          共 {filtered.length} 封{search && filtered.length !== emails.length ? '（已筛选）' : ''}
+        </div>
+        <ul className="mail-mini__list">
+          {filtered.map((email) => (
+            <li key={email.id}>
+              <button
+                type="button"
+                className={`mail-mini__item${email.id === selectedId ? ' is-active' : ''}`}
+                onClick={() => onSelect(email.id)}
+              >
+                <span className="mail-mini__row">
+                  <span className="mail-mini__to">{email.recipient}</span>
+                  <span className="mail-mini__time">{formatDate(email.sentAt)}</span>
+                </span>
+                <span className="mail-mini__subject">{email.subject || '（无主题）'}</span>
+                <span className="mail-mini__meta">
+                  <span className={`dot${email.openCount > 0 ? ' dot--on' : ''}`} />
+                  {email.openCount > 0 ? `已打开 ${email.openCount} 次` : '待查看'}
+                  {email.clickCount > 0 ? ` · 点击 ${email.clickCount} 次` : ''}
+                  {!email.trackingActive ? ' · 追踪已停止' : ''}
+                </span>
+              </button>
+            </li>
+          ))}
+          {filtered.length === 0 && <li className="mail-mini__empty">暂无邮件</li>}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -68,13 +147,9 @@ export function EmailList({ onSelect }: Props) {
       </div>
 
       {/* FR-DASH-04: 検索・フィルタ */}
-      <input
-        className="search-bar"
-        type="text"
-        placeholder="按主题、收件人或标签搜索..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      {searchBar}
+
+      {actionError && <div className="error">操作失败：{actionError}</div>}
 
       {/* FR-DASH-01: メール送信履歴 */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -87,6 +162,7 @@ export function EmailList({ onSelect }: Props) {
               <th>打开次数</th>
               <th>点击次数</th>
               <th>发送时间</th>
+              <th>追踪</th>
             </tr>
           </thead>
           <tbody>
@@ -108,11 +184,39 @@ export function EmailList({ onSelect }: Props) {
                 <td>{email.openCount}</td>
                 <td>{email.clickCount}</td>
                 <td>{formatDate(email.sentAt)}</td>
+                <td>
+                  {email.trackingActive ? (
+                    <button
+                      type="button"
+                      className="btn-stop"
+                      disabled={stopping.includes(email.id)}
+                      title={
+                        email.trackingExpiresAt
+                          ? `${formatDateTime(email.trackingExpiresAt)} 自动停止追踪`
+                          : undefined
+                      }
+                      onClick={(e) => handleStopTracking(e, email.id)}
+                    >
+                      {stopping.includes(email.id) ? '停止中...' : '停止追踪'}
+                    </button>
+                  ) : (
+                    <span
+                      className="badge badge--stopped"
+                      title={
+                        email.trackingReason === 'manual'
+                          ? `已于 ${formatDateTime(email.trackingStoppedAt)} 手动停止`
+                          : `已于 ${formatDateTime(email.trackingExpiresAt)} 自动停止（发送 7 天后）`
+                      }
+                    >
+                      {email.trackingReason === 'manual' ? '已停止' : '已过期'}
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                   暂无邮件
                 </td>
               </tr>
@@ -135,4 +239,17 @@ function formatDate(iso: string): string {
   if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)} 天前`;
 
   return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

@@ -12,6 +12,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createDb } from '../lib/db';
 import { checkAutoBan } from '../lib/abuse';
 import { isValidSendkey, normalizeSendkey, saveSendkey } from '../lib/sendkey';
+import { getTrackingState, trackingTtlDays } from '../lib/tracking';
 import type { Env } from '../lib/types';
 
 /** Sign up 後 24h は送信上限を制限（ADR-003 §4） */
@@ -214,6 +215,7 @@ app.get('/', async (c) => {
   const tenantId = c.get('tenantId');
   const limit = Math.min(Number(c.req.query('limit') ?? '50'), 100);
   const offset = Number(c.req.query('offset') ?? '0');
+  const ttlDays = trackingTtlDays(c.env);
 
   const results = await db
     .select({
@@ -224,6 +226,7 @@ app.get('/', async (c) => {
       recipientName: emails.recipientName,
       tag: emails.tag,
       sentAt: emails.sentAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
       openCount: sql<number>`(SELECT COUNT(*) FROM opens WHERE opens.email_id = emails.id)`,
       clickCount: sql<number>`(SELECT COUNT(*) FROM clicks c JOIN links l ON c.link_id = l.id WHERE l.email_id = emails.id)`,
       firstOpenedAt: sql<number | null>`(SELECT MIN(opened_at) FROM opens WHERE opens.email_id = emails.id)`,
@@ -234,8 +237,19 @@ app.get('/', async (c) => {
     .limit(limit)
     .offset(offset);
 
+  // 追跡状態（手動停止 / 送信から TTL 日経過）を各行に付与
+  const data = results.map((row) => {
+    const tracking = getTrackingState(row, ttlDays);
+    return {
+      ...row,
+      trackingActive: tracking.active,
+      trackingReason: tracking.reason,
+      trackingExpiresAt: tracking.expiresAt,
+    };
+  });
+
   return c.json({
-    data: results,
+    data,
     pagination: { limit, offset },
   });
 });
@@ -286,11 +300,72 @@ app.get('/:id', async (c) => {
       .where(eq(links.emailId, emailId)),
   ]);
 
+  const tracking = getTrackingState(email, trackingTtlDays(c.env));
+
   return c.json({
     ...email,
     opens: emailOpens,
     links: emailLinks,
     openCount: emailOpens.length,
+    trackingActive: tracking.active,
+    trackingReason: tracking.reason,
+    trackingExpiresAt: tracking.expiresAt,
+  });
+});
+
+/**
+ * POST /api/emails/:id/stop-tracking
+ * このメールの追跡を手動で停止する。
+ *
+ * 停止後も /i/:id は透明 GIF を返し、/r/:id は 302 で元 URL に飛ぶ（受信者は気づかない）。
+ * ただし開封・クリックの記録と Server酱 通知は行わない。
+ * 冪等: 既に停止済みなら既存の停止日時をそのまま返す。
+ */
+app.post('/:id/stop-tracking', async (c) => {
+  const emailId = c.req.param('id');
+  const tenantId = c.get('tenantId');
+  const db = createDb(c.env.DB);
+
+  const email = await db
+    .select({
+      id: emails.id,
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
+    })
+    .from(emails)
+    .where(and(eq(emails.id, emailId), eq(emails.tenantId, tenantId)))
+    .get();
+
+  if (!email) {
+    return c.json({ error: 'Email not found' }, 404);
+  }
+
+  if (!email.trackingStoppedAt) {
+    await db
+      .update(emails)
+      .set({ trackingStoppedAt: new Date() })
+      .where(eq(emails.id, emailId));
+  }
+
+  const updated = await db
+    .select({
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
+    })
+    .from(emails)
+    .where(eq(emails.id, emailId))
+    .get();
+
+  const tracking = getTrackingState(updated ?? email, trackingTtlDays(c.env));
+
+  return c.json({
+    id: emailId,
+    trackingActive: tracking.active,
+    trackingReason: tracking.reason,
+    trackingStoppedAt: tracking.stoppedAt,
+    trackingExpiresAt: tracking.expiresAt,
   });
 });
 

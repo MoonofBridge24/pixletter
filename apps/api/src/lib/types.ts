@@ -15,6 +15,8 @@ export interface Env {
   NEW_USER_EMAIL_LIMIT?: string;
   // 送信直後に既読と数えない猶予期間（ミリ秒、デフォルト 10000 = 10秒）。
   OPEN_GRACE_MS?: string;
+  // 送信から何日で追跡を自動停止するか（デフォルト 7 日）。
+  TRACKING_TTL_DAYS?: string;
   // Server酱³ sendkey（全ユーザー共通のフォールバック。個別設定が優先）
   SERVERCHAN_SENDKEY?: string;
   PIXEL_DOMAIN?: string;

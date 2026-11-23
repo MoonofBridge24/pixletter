@@ -1,31 +1,79 @@
 import React, { useEffect, useState } from 'react';
-import { fetchEmailDetail, type EmailDetail } from './api';
+import {
+  fetchEmailDetail,
+  stopTracking,
+  type EmailDetail,
+  type TrackingPatch,
+} from './api';
 
 interface Props {
   emailId: string;
   onBack: () => void;
+  /** 停止追踪成功后同步列表里的状态（左侧紧凑列表会跟着变） */
+  onTrackingStopped?: (id: string, patch: TrackingPatch) => void;
 }
 
-export function EmailDetailView({ emailId, onBack }: Props) {
+export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 左リストで切り替えると emailId だけが変わる。初回は loading、
+    // 2 回目以降は前の内容を出したまま控えめに読み込み中を示す。
+    let cancelled = false;
+    setRefreshing(true);
+    setError(null);
     fetchEmailDetail(emailId)
-      .then(setEmail)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) setEmail(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError((err as Error).message);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [emailId]);
+
+  async function handleStopTracking() {
+    if (!email) return;
+    setStopping(true);
+    setActionError(null);
+    try {
+      const res = await stopTracking(email.id);
+      const patch: TrackingPatch = {
+        trackingActive: res.trackingActive,
+        trackingReason: res.trackingReason,
+        trackingStoppedAt: res.trackingStoppedAt,
+        trackingExpiresAt: res.trackingExpiresAt,
+      };
+      setEmail({ ...email, ...patch });
+      onTrackingStopped?.(email.id, patch);
+    } catch (err) {
+      setActionError((err as Error).message);
+    } finally {
+      setStopping(false);
+    }
+  }
 
   if (loading) return <div className="loading">加载中...</div>;
   if (error) return <div className="error">错误：{error}</div>;
   if (!email) return null;
 
   return (
-    <>
+    <div className={`detail-panel${refreshing ? ' is-refreshing' : ''}`}>
       <a className="back-link" href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>
-        &larr; 返回列表
+        &larr; 返回全部邮件
       </a>
 
       <div className="card">
@@ -35,6 +83,45 @@ export function EmailDetailView({ emailId, onBack }: Props) {
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
           收件人：{email.recipient} &middot; 发送时间：{new Date(email.sentAt).toLocaleString('zh-CN')}
         </div>
+
+        <div className="tracking-row">
+          {email.trackingActive ? (
+            <>
+              <span className="badge badge--opened">追踪中</span>
+              <span className="tracking-hint">
+                {email.trackingExpiresAt
+                  ? `${new Date(email.trackingExpiresAt).toLocaleString('zh-CN')} 自动停止追踪`
+                  : '发送 7 天后自动停止追踪'}
+              </span>
+              <button
+                type="button"
+                className="btn-stop"
+                disabled={stopping}
+                onClick={handleStopTracking}
+              >
+                {stopping ? '停止中...' : '停止追踪'}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="badge badge--stopped">
+                {email.trackingReason === 'manual' ? '已停止追踪' : '追踪已过期'}
+              </span>
+              <span className="tracking-hint">
+                {email.trackingReason === 'manual'
+                  ? `已于 ${email.trackingStoppedAt ? new Date(email.trackingStoppedAt).toLocaleString('zh-CN') : '—'} 手动停止`
+                  : `已于 ${email.trackingExpiresAt ? new Date(email.trackingExpiresAt).toLocaleString('zh-CN') : '—'} 自动停止（发送 7 天后）`}
+                ，邮件仍可正常打开、链接仍可正常点击，但不再记录也不再推送。
+              </span>
+            </>
+          )}
+        </div>
+
+        {actionError && (
+          <div className="error" style={{ textAlign: 'left', padding: '8px 0' }}>
+            操作失败：{actionError}
+          </div>
+        )}
 
         <div className="stats-grid" style={{ marginBottom: 0 }}>
           <div className="stat-card">
@@ -110,7 +197,7 @@ export function EmailDetailView({ emailId, onBack }: Props) {
           </table>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

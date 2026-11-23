@@ -149,6 +149,9 @@ export const emails = sqliteTable(
     sentAt: integer('sent_at', { mode: 'timestamp' })
       .default(sql`(unixepoch())`)
       .notNull(),
+    // 手動で追跡停止した日時。NULL は未停止。
+    // これが入るとピクセル/リダイレクトは通常応答のまま、記録も通知も行わない。
+    trackingStoppedAt: integer('tracking_stopped_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`(unixepoch())`)
       .notNull(),

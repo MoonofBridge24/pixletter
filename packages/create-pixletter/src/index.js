@@ -14,7 +14,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
@@ -63,9 +63,13 @@ async function main() {
 
   // Step 5: Migrations
   console.log('\nApplying migrations...');
-  const migrations = ['0000_peaceful_apocalypse.sql', '0001_better_auth_tables.sql'];
+  // ディレクトリを走査する（新しいマイグレーションを追加しても更新不要）
+  const migrationDir = join('packages', 'db', 'migrations');
+  const migrations = existsSync(migrationDir)
+    ? readdirSync(migrationDir).filter((f) => f.endsWith('.sql')).sort()
+    : [];
   for (const m of migrations) {
-    const path = join('packages', 'db', 'migrations', m);
+    const path = join(migrationDir, m);
     if (existsSync(path)) {
       try {
         run(`npx wrangler d1 execute ${dbName} --local --file=${path} --config=apps/api/wrangler.toml`);

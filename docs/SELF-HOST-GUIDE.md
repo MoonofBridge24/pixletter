@@ -50,6 +50,9 @@ npx wrangler d1 execute pixletter-db --remote \
 npx wrangler d1 execute pixletter-db --remote \
   --file=packages/db/migrations/0002_serverchan_sendkey.sql
 
+npx wrangler d1 execute pixletter-db --remote \
+  --file=packages/db/migrations/0003_tracking_stopped_at.sql
+
 # 5. Seed self tenant
 npx wrangler d1 execute pixletter-db --remote \
   --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000);"
@@ -165,6 +168,7 @@ Set these as **Environment variables** in the Pages project dashboard
 | `PIXEL_DOMAIN` | No | Custom domain for pixel URLs |
 | `NEW_USER_EMAIL_LIMIT` | No | Max emails in the first 24h after signup (abuse protection). Default `100`. |
 | `OPEN_GRACE_MS` | No | Ignore opens within this many ms of email creation (prefetch protection). Default `10000` (10s). |
+| `TRACKING_TTL_DAYS` | No | Auto-stop tracking this many days after an email is sent. Default `7`. After stopping, the pixel and redirects still work normally — events are just no longer recorded and no pushes are sent. |
 
 After adding or changing any variable in the dashboard, **trigger a new deployment** (re-run the "Deploy to Cloudflare" workflow or redeploy) — Pages injects vars at deploy time, so edits do not affect already-running deployments until the next one. Set them in **both** Production and Preview environments.
 

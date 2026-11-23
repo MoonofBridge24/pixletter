@@ -5,6 +5,7 @@ import { createDb } from '../lib/db';
 import { hashIp } from '../lib/hash';
 import { notifyOpen } from '../lib/notify';
 import { TRANSPARENT_GIF } from '../lib/pixel';
+import { getTrackingState, trackingTtlDays } from '../lib/tracking';
 import type { Env } from '../lib/types';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -35,13 +36,23 @@ async function handlePixel(c: any) {
     .select({
       id: emails.id,
       tenantId: emails.tenantId,
+      sentAt: emails.sentAt,
       createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
     })
     .from(emails)
     .where(eq(emails.trackingId, trackingId))
     .get();
 
   if (email) {
+    // 追跡停止中（手動停止 or 送信から TRACKING_TTL_DAYS 日経過）は
+    // 透明 GIF を返すだけ。開封記録も Server酱 通知も行わない。
+    // 受信者から見た挙動は通常時と完全に同じ。
+    const tracking = getTrackingState(email, trackingTtlDays(c.env));
+    if (!tracking.active) {
+      return gifResponse();
+    }
+
     const createdAt = email.createdAt instanceof Date
       ? email.createdAt.getTime()
       : Number(email.createdAt);
@@ -115,14 +126,25 @@ app.get('/r/:id', async (c) => {
     return c.json({ error: 'Link not found' }, 404);
   }
 
-  // optout チェック
+  // optout / 追跡停止チェック
   const email = await db
-    .select({ recipient: emails.recipient })
+    .select({
+      recipient: emails.recipient,
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
+    })
     .from(emails)
     .where(eq(emails.id, link.emailId))
     .get();
 
   if (email) {
+    // 追跡停止中はクリックも記録しない（リダイレクト自体は通常どおり 302）
+    const tracking = getTrackingState(email, trackingTtlDays(c.env));
+    if (!tracking.active) {
+      return c.redirect(link.originalUrl, 302);
+    }
+
     const optout = await db
       .select({ id: optouts.id })
       .from(optouts)
