@@ -4,7 +4,9 @@
 
 Chrome 扩展 + 控制台，用于追踪从 Gmail 和 QQ 邮箱发出的邮件的打开与链接点击。让你的追踪数据掌握在自己手里，同时每月花费 $0。
 
-[![CI](https://github.com/dkamehat/pixletter/actions/workflows/ci.yml/badge.svg)](https://github.com/dkamehat/pixletter/actions) [![Cost](https://img.shields.io/badge/Monthly%20Cost-%240-brightgreen)]() [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)]() [![Tests](https://img.shields.io/badge/Tests-34%20passing-brightgreen)]()
+[![CI](https://github.com/MoonofBridge24/pixletter/actions/workflows/ci.yml/badge.svg)](https://github.com/MoonofBridge24/pixletter/actions) [![Cost](<https://img.shields.io/badge/Monthly%20Cost-%240-brightgreen>)]() [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE) [![Tests](<https://img.shields.io/badge/Tests-34%20passing-brightgreen>)]() [![Fork of](https://img.shields.io/badge/fork%20of-dkamehat%2Fpixletter-lightgrey)](https://github.com/dkamehat/pixletter)
+
+> **关于本仓库**：这是 [dkamehat/pixletter](https://github.com/dkamehat/pixletter) 的修改版本（fork），原作者 [@kame__lift](https://x.com/kame__lift)。本仓库的改动集中在追踪控制（手动停止 / 恢复、7 天自动过期）、通知内容、控制台界面与 API 密钥管理，详见 [LICENSE](LICENSE) 中的修改声明。原项目的版权与署名全部保留，本仓库同样以 **AGPL-3.0-or-later** 授权。
 
 控制台与 API 运行在**同一个 Cloudflare Pages 实例**上（`_worker.js` 高级模式）。`apps/api/` 中的 API 源码在构建时打包进 Pages，不会单独部署 Worker。
 
@@ -13,6 +15,8 @@ Chrome 扩展 + 控制台，用于追踪从 Gmail 和 QQ 邮箱发出的邮件�
 ---
 
 ## 我为什么会做这个项目
+
+> 本节由原作者 [@kame__lift](https://x.com/kame__lift) 撰写，保留原貌以尊重原始署名。
 
 作为一名每天处理大量商务沟通的产品经理，我每天要发出几十封邮件——给高管的项目进展、与 74 人团队的协作、与外部伙伴的跟进。我完全不知道是否有人真的读过它们。
 
@@ -53,6 +57,7 @@ graph TD
 ## 📦 功能
 
 ### API（基于 Cloudflare Pages 的 Hono）v0.3.0
+
 - `POST /api/emails` — 登记邮件；返回 tracking_id、像素 URL、追踪链接和退订 URL
 - `GET /pixel/:id.gif` — 返回 1×1 透明 GIF 并记录打开事件（IP 经过 SHA-256 哈希）
 - `GET /r/:id` — 302 跳转到原始 URL 并记录点击事件
@@ -68,6 +73,7 @@ graph TD
 - `GET /terms` — 服务条款
 
 ### Chrome 扩展（Manifest V3）
+
 - 支持 **Gmail** 和 **QQ 邮箱**（`mail.qq.com`）的写信窗口
 - 发送按钮旁的追踪开/关切换按钮
 - 发送时自动注入追踪像素并改写链接
@@ -79,6 +85,7 @@ graph TD
 ![Gmail 写信界面中的追踪](docs/screenshots/08-gmail-compose.png)
 
 ### 控制台（React + Vite）
+
 - 按时间倒序展示邮件发送历史
 - 每封邮件的打开时间线（UserAgent + Gmail 代理识别）
 - 汇总的打开率 / 点击率
@@ -86,6 +93,7 @@ graph TD
 - 主从布局：详情页左侧常驻邮件列表，点一下即可切换邮件
 
 ### 多租户认证（第二阶段）
+
 - 集成 Better Auth（邮箱/密码 + Google OAuth）
 - Chrome 扩展使用 API Key 认证（SHA-256 哈希存储）
 - **API 密钥管理**：登录后可从顶部「API 密钥」按钮随时生成、重命名、吊销密钥；已生成过密钥的账号登录时不再自动弹初回引导
@@ -96,6 +104,7 @@ graph TD
 - GDPR 数据删除与导出
 
 ### 可观测性与安全
+
 - X-Request-ID / X-Response-Time 响应头
 - 速率限制（每个 IP 每分钟 100 次请求）
 - 邮件打开时通过 Server酱³ 推送（[sc3.ft07.com](https://sc3.ft07.com)，使用扩展中配置的每个用户自己的 SendKey，每封邮件每小时最多一次；默认忽略创建后 10 秒内的打开，可通过 `OPEN_GRACE_MS` 调整）
@@ -106,11 +115,11 @@ graph TD
 
 ## 💰 零成本基础设施
 
-| 服务 | 免费额度 | 预计用量 | 余量 |
-|---|---|---|---|
-| Cloudflare Pages（含 `_worker.js` 请求） | 10 万次请求/天 · 无限带宽 · 500 次构建/月 | 100 次请求/天 · 30 次构建/月 | **1000×** |
-| Cloudflare D1 | 5GB · 500 万次读取/天 | < 1MB · 100 次读取/天 | **50,000×** |
-| GitHub 公开仓库 | 无限 | — | ∞ |
+| 服务                                       | 免费额度                                    | 预计用量                      | 余量               |
+| ------------------------------------------ | ------------------------------------------- | ----------------------------- | ------------------ |
+| Cloudflare Pages（含 `_worker.js` 请求） | 10 万次请求/天 · 无限带宽 · 500 次构建/月 | 100 次请求/天 · 30 次构建/月 | **1000×**   |
+| Cloudflare D1                              | 5GB · 500 万次读取/天                      | < 1MB · 100 次读取/天        | **50,000×** |
+| GitHub 公开仓库                            | 无限                                        | —                            | ∞                 |
 
 **合计：每月 $0。与 SaaS 竞品相比，三年可节省 $180–$864（[ADR-002](docs/ADR-002-free-tier-operations.md)）**
 
@@ -118,17 +127,17 @@ graph TD
 
 ## 🛠️ 技术栈
 
-| 层级 | 技术 |
-|---|---|
-| Chrome 扩展 | Manifest V3 · Service Worker · Content Script |
+| 层级         | 技术                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| Chrome 扩展  | Manifest V3 · Service Worker · Content Script                            |
 | API + 控制台 | Cloudflare Pages（单实例，`_worker.js`）· Hono v4 · React 19 · Vite 6 |
-| 数据库 | Cloudflare D1（SQLite）· Drizzle ORM |
-| Monorepo | Turborepo · pnpm |
-| 认证 | Better Auth（直连 D1） |
-| 测试 | Vitest · @cloudflare/vitest-pool-workers（34 个测试） |
-| 可观测性 | X-Request-ID · X-Response-Time · Pages 分析 |
-| CI/CD | GitHub Actions |
-| 许可证 | AGPL-3.0-or-later |
+| 数据库       | Cloudflare D1（SQLite）· Drizzle ORM                                      |
+| Monorepo     | Turborepo · pnpm                                                          |
+| 认证         | Better Auth（直连 D1）                                                     |
+| 测试         | Vitest · @cloudflare/vitest-pool-workers（34 个测试）                     |
+| 可观测性     | X-Request-ID · X-Response-Time · Pages 分析                              |
+| CI/CD        | GitHub Actions                                                             |
+| 许可证       | AGPL-3.0-or-later                                                          |
 
 ---
 
@@ -146,8 +155,8 @@ graph TD
 ### 手动配置
 
 ```bash
-# 克隆
-git clone https://github.com/dkamehat/pixletter.git
+# 克隆（本仓库）
+git clone https://github.com/MoonofBridge24/pixletter.git
 cd pixletter
 pnpm install
 
@@ -183,48 +192,53 @@ pnpm type-check
 ## 📸 截图
 
 ### 首页与登录
-| 首页 | Google 登录 |
-|---------|-------------|
+
+| 首页                                     | Google 登录                            |
+| ---------------------------------------- | -------------------------------------- |
 | ![首页](docs/screenshots/01-landing.png) | ![登录](docs/screenshots/02-login.png) |
 
 ### 新手引导（3 步）
-| 1. 生成 API Key | 2. 安装扩展 | 3. 发送测试邮件 |
-|---------------------|---------------------|-------------------|
+
+| 1. 生成 API Key                                      | 2. 安装扩展                                          | 3. 发送测试邮件                                      |
+| ---------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
 | ![第 1 步](docs/screenshots/03-onboarding-step1.png) | ![第 2 步](docs/screenshots/04-onboarding-step2.png) | ![第 3 步](docs/screenshots/05-onboarding-step3.png) |
 
 > 引导只对「没有任何密钥、也没有邮件记录」的新账号出现。已有密钥后登录会直接进入控制台，之后可随时用右上角的「API 密钥」按钮管理密钥。
 
 ### Chrome 扩展
-| 扩展弹窗 | Chrome 扩展管理页 |
-|----------------|----------------------|
+
+| 扩展弹窗                                         | Chrome 扩展管理页                                        |
+| ------------------------------------------------ | -------------------------------------------------------- |
 | ![弹窗](docs/screenshots/06-extension-popup.png) | ![扩展管理页](docs/screenshots/07-chrome-extensions.png) |
 
 ### Gmail 与控制台
-| Gmail 写信界面（追踪开启） | 控制台 |
-|--------------------------|-----------|
+
+| Gmail 写信界面（追踪开启）                         | 控制台                                       |
+| -------------------------------------------------- | -------------------------------------------- |
 | ![写信界面](docs/screenshots/08-gmail-compose.png) | ![控制台](docs/screenshots/09-dashboard.png) |
 
 ### 隐私控制
-| 退订页 | 退订成功 | 已退订 |
-|-------------|-----------|-------------------|
+
+| 退订页                                         | 退订成功                                               | 已退订                                               |
+| ---------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
 | ![退订页](docs/screenshots/10-optout-page.png) | ![退订成功](docs/screenshots/11-opted-out-success.png) | ![已退订](docs/screenshots/12-already-opted-out.png) |
 
 ---
 
 ## 📚 文档
 
-| 文档 | 说明 |
-|---|---|
-| [ADR-001](docs/ADR-001-stack-selection.md) | 技术栈选型 ADR |
-| [ADR-002](docs/ADR-002-free-tier-operations.md) | 免费套餐运营 ADR |
-| [ADR-003](docs/phase2/ADR-003-multi-tenant-architecture.md) | 多租户架构 |
-| [ADR-004](docs/phase2/ADR-004-oss-licensing-and-hosting-model.md) | 采用 AGPLv3 的理由 |
-| [CHECKLIST.md](CHECKLIST.md) | 第一天执行清单 |
-| [API-REFERENCE.md](docs/API-REFERENCE.md) | API 参考 |
-| [GOOGLE-OAUTH-SETUP.md](docs/GOOGLE-OAUTH-SETUP.md) | Google OAuth 配置指南 |
-| [SELF-HOST-GUIDE.md](docs/SELF-HOST-GUIDE.md) | 自托管指南 |
-| [MANUAL-DEPLOY.md](docs/MANUAL-DEPLOY.md) | 手动构建与部署（Release 产物 / 手动上传 JS / 手动初始化数据库与变量） |
-| [CLAUDE-CODE-CASE-STUDY.md](docs/CLAUDE-CODE-CASE-STUDY.md) | Claude Code 案例研究 |
+| 文档                                                             | 说明                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [ADR-001](docs/ADR-001-stack-selection.md)                        | 技术栈选型 ADR                                                        |
+| [ADR-002](docs/ADR-002-free-tier-operations.md)                   | 免费套餐运营 ADR                                                      |
+| [ADR-003](docs/phase2/ADR-003-multi-tenant-architecture.md)       | 多租户架构                                                            |
+| [ADR-004](docs/phase2/ADR-004-oss-licensing-and-hosting-model.md) | 采用 AGPLv3 的理由                                                    |
+| [CHECKLIST.md](CHECKLIST.md)                                      | 第一天执行清单                                                        |
+| [API-REFERENCE.md](docs/API-REFERENCE.md)                         | API 参考                                                              |
+| [GOOGLE-OAUTH-SETUP.md](docs/GOOGLE-OAUTH-SETUP.md)               | Google OAuth 配置指南                                                 |
+| [SELF-HOST-GUIDE.md](docs/SELF-HOST-GUIDE.md)                     | 自托管指南                                                            |
+| [MANUAL-DEPLOY.md](docs/MANUAL-DEPLOY.md)                         | 手动构建与部署（Release 产物 / 手动上传 JS / 手动初始化数据库与变量） |
+| [CLAUDE-CODE-CASE-STUDY.md](docs/CLAUDE-CODE-CASE-STUDY.md)       | Claude Code 案例研究                                                  |
 
 ---
 
@@ -233,6 +247,7 @@ pnpm type-check
 邮件追踪在法律和伦理上都是敏感行为。本工具仅设计用于正当场景。
 
 ### 允许的使用场景
+
 - 追踪**你自己**发出的邮件的打开/点击情况（例如判断跟进时机）
 - 收件人已**明确选择接收**的营销邮件
 - 事先已告知会进行追踪的内部团队沟通
@@ -343,16 +358,16 @@ sequenceDiagram
 
 ### 数据留存
 
-| 数据 | 留存期 | 删除触发条件 |
-|------|-----------|------------------|
-| 邮件元数据（主题、收件人、时间戳） | 直到账号删除 | `DELETE /api/account/data` |
-| 打开事件（ipHash、userAgent、时间戳） | 直到账号删除 | `DELETE /api/account/data` |
-| 点击事件（ipHash、userAgent、时间戳） | 直到账号删除 | `DELETE /api/account/data` |
-| 链接映射（originalUrl、trackingId） | 直到账号删除 | `DELETE /api/account/data` |
-| 退订记录（recipientEmail） | 永久 | 从不删除（保护收件人） |
-| 认证会话 | 闲置后过期 | Better Auth 会话过期 |
-| 每月发送计数器 | 每 30 天重置 | 在 reset_at 自动重置 |
-| 租户记录（删除时） | 软删除 | isSuspended=true，name 设为 [deleted] |
+| 数据                                  | 留存期       | 删除触发条件                          |
+| ------------------------------------- | ------------ | ------------------------------------- |
+| 邮件元数据（主题、收件人、时间戳）    | 直到账号删除 | `DELETE /api/account/data`          |
+| 打开事件（ipHash、userAgent、时间戳） | 直到账号删除 | `DELETE /api/account/data`          |
+| 点击事件（ipHash、userAgent、时间戳） | 直到账号删除 | `DELETE /api/account/data`          |
+| 链接映射（originalUrl、trackingId）   | 直到账号删除 | `DELETE /api/account/data`          |
+| 退订记录（recipientEmail）            | 永久         | 从不删除（保护收件人）                |
+| 认证会话                              | 闲置后过期   | Better Auth 会话过期                  |
+| 每月发送计数器                        | 每 30 天重置 | 在 reset_at 自动重置                  |
+| 租户记录（删除时）                    | 软删除       | isSuspended=true，name 设为 [deleted] |
 
 ### 不会存储的内容
 
@@ -414,40 +429,77 @@ sequenceDiagram
 
 ## 📅 路线图
 
-- [x] **第 1 天**：PRD、ADR、数据库 schema、monorepo 初始化、D1 配置
-- [x] **第 2 天**：API 实现（6 个接口）+ Vitest
-- [x] **第 3 天**：Chrome 扩展 MV3（追踪开关、像素注入、链接改写）
-- [x] **第 4 天**：已发送文件夹 ✓✓ 图标 + React 控制台
-- [x] **第 5 天**：Slack 通知 + 速率限制（后改为 Server酱³）
-- [x] **第 6 天**：可观测性（Request-ID、Response-Time）+ 测试扩充（5→18）
-- [x] **第 7 天**：README 完善 + 公开发布
+- [X] **第 1 天**：PRD、ADR、数据库 schema、monorepo 初始化、D1 配置
+- [X] **第 2 天**：API 实现（6 个接口）+ Vitest
+- [X] **第 3 天**：Chrome 扩展 MV3（追踪开关、像素注入、链接改写）
+- [X] **第 4 天**：已发送文件夹 ✓✓ 图标 + React 控制台
+- [X] **第 5 天**：Slack 通知 + 速率限制（后改为 Server酱³）
+- [X] **第 6 天**：可观测性（Request-ID、Response-Time）+ 测试扩充（5→18）
+- [X] **第 7 天**：README 完善 + 公开发布
 
 ### 第二阶段：开源发布与官方托管
-- [x] Better Auth 多租户认证（ba_user/session/account/verification）
-- [x] 注册 → 自动创建租户（databaseHooks）
-- [x] tracking.ts 中动态 tenant_id
-- [x] 每月发送限额 + 新账号 24 小时限制
-- [x] 强制注入退订 URL + 公开退订页
-- [x] 自动封禁（超过 10 次退订后暂停）
-- [x] GDPR 数据删除 / 导出 API
-- [x] 隐私政策 + 服务条款
-- [x] 首页 + 注册 / 登录界面
-- [x] 用量控制台（UsageBanner）
-- [x] 部署到 Cloudflare（控制台 + API 共用单个 Pages 实例）
-- [x] 新手引导流程
+
+- [X] Better Auth 多租户认证（ba_user/session/account/verification）
+- [X] 注册 → 自动创建租户（databaseHooks）
+- [X] tracking.ts 中动态 tenant_id
+- [X] 每月发送限额 + 新账号 24 小时限制
+- [X] 强制注入退订 URL + 公开退订页
+- [X] 自动封禁（超过 10 次退订后暂停）
+- [X] GDPR 数据删除 / 导出 API
+- [X] 隐私政策 + 服务条款
+- [X] 首页 + 注册 / 登录界面
+- [X] 用量控制台（UsageBanner）
+- [X] 部署到 Cloudflare（控制台 + API 共用单个 Pages 实例）
+- [X] 新手引导流程
 - [ ] `npx create-pixletter@latest` 配置向导
 - [ ] 文档站点
 
 ---
 
-## 📄 许可证
+## 📄 许可证与署名
 
-AGPL-3.0-or-later.
+**AGPL-3.0-or-later**（GNU Affero General Public License v3.0 或更高版本）。完整许可证文本见 [LICENSE](LICENSE)。
+
+| 项目         | 信息                                                                    |
+| ------------ | ----------------------------------------------------------------------- |
+| 上游项目     | [dkamehat/pixletter](https://github.com/dkamehat/pixletter)             |
+| 原始著作权   | Copyright (C) 2026 kame_lift                                            |
+| 本仓库       | [MoonofBridge24/pixletter](https://github.com/MoonofBridge24/pixletter) |
+| 修改著作权   | Copyright (C) 2026 MoonofBridge24（仅覆盖本仓库的修改部分）             |
+| 修改起始时间 | 2026 年 11 月                                                           |
+
+### 本仓库的修改说明（AGPL-3.0 § 5(a)）
+
+本仓库是上游项目的**修改版本（fork）**，并非原版。相对原作品的改动：
+
+- **邮件追踪**：新增手动「停止追踪 / 恢复追踪」，并在邮件发送 7 天后自动停止（`TRACKING_TTL_DAYS` 可配置）。停止后像素与链接仍正常返回，只是不再记录打开/点击、不再推送通知。
+- **通知**：Server酱³ 推送中新增「当前邮件已被查看次数」。
+- **控制台**：邮件列表与详情页改为主从布局；新增 API 密钥管理界面（增删改查）；已生成密钥的账号登录时不再自动弹出引导。
+- **追踪像素**：替换为标准 1×1 透明 GIF，修复收件端可见的像素点。
+- **收件人识别**：不再排除发件人本人，允许给自己发信时正常追踪。
+- **构建与部署**：新增 Release 构建工作流与[中文手动部署文档](docs/MANUAL-DEPLOY.md)。
+
+原项目的版权声明、作者署名与许可证均按要求完整保留，未做删改。
+
+### 你可以做什么
+
+AGPLv3 允许你自由使用、修改、自托管和再分发本项目，包括商用部署，前提是遵守许可证条款：
+
+1. **保留署名**：分发时保留原有的版权声明、作者署名与许可证文本，并显著标注你对代码所做的修改及日期（§ 5）。
+2. **同样开源**：你分发或以网络服务形式提供修改版本时，必须以 AGPLv3 公开完整的对应源码（§ 13，即「网络条款」——这正是 AGPL 与 GPL 的关键差别）。
+3. **无附加限制**：不得对下游接收者施加比 AGPLv3 更严格的附加条款。
 
 选择 AGPLv3 是为了确保即便被当作托管服务部署，改进也能保持开源。专有 SaaS 的 fork 必须公开其修改。这既保护了开源生态，又保持了代码可自由地自托管。完整理由见 [ADR-004](docs/phase2/ADR-004-oss-licensing-and-hosting-model.md)。
 
+> 如果你只想**使用**部署好的服务（而不是分发或修改代码），则不受源码公开义务约束——AGPL 的义务来自「分发」与「提供网络服务」这两种行为。
+
 ---
 
-## 🙋 作者
+## 🙋 作者与维护者
 
-由 [@kame__lift](https://x.com/kame__lift) 开发
+| 角色         | 署名                                                                    |
+| ------------ | ----------------------------------------------------------------------- |
+| 原作者       | [@kame__lift](https://x.com/kame__lift) · [dkamehat/pixletter](https://github.com/dkamehat/pixletter) |
+| 本仓库维护者 | [@MoonofBridge24](https://github.com/MoonofBridge24) · [MoonofBridge24/pixletter](https://github.com/MoonofBridge24/pixletter) |
+
+本仓库在上游项目基础上做了功能增强与中文化适配。上游的设计思路、架构决策与绝大部分实现归功于原作者；fork 中的改动以 [LICENSE](LICENSE) 的修改声明为准。问题反馈与 Pull Request 请提交到[本仓库 Issues](https://github.com/MoonofBridge24/pixletter/issues)。

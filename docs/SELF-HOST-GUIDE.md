@@ -27,7 +27,7 @@ The wizard will guide you through: clone, install, D1 setup, migrations, and see
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/dkamehat/pixletter.git
+git clone https://github.com/MoonofBridge24/pixletter.git
 cd pixletter
 pnpm install
 

@@ -5,9 +5,12 @@
   "description": "Open-source email tracking, $0/month, hosted on Cloudflare",
   "license": "AGPL-3.0-or-later",
   "author": "kame_lift <https://github.com/dkamehat>",
+  "contributors": [
+    "MoonofBridge24 <https://github.com/MoonofBridge24>"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dkamehat/pixletter.git"
+    "url": "git+https://github.com/MoonofBridge24/pixletter.git"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

@@ -5,8 +5,8 @@
 If you discover a security vulnerability in pixletter, please report it responsibly:
 
 1. **Do NOT open a public GitHub Issue**
-2. Use [GitHub Security Advisories](https://github.com/dkamehat/pixletter/security/advisories/new) to report privately
-3. Or DM: [@kame__lift on X](https://x.com/kame__lift)
+2. Use [GitHub Security Advisories](https://github.com/MoonofBridge24/pixletter/security/advisories/new) to report privately
+3. Or open a private report to [@MoonofBridge24](https://github.com/MoonofBridge24)
 
 We will acknowledge receipt within 48 hours and provide a fix timeline within 7 days.
 

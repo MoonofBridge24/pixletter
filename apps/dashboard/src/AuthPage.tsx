@@ -159,6 +159,13 @@ export function AuthPage({ onAuth }: Props) {
           )}
         </div>
       </div>
+
+      <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-secondary)' }}>
+        AGPLv3 开源项目 ·{' '}
+        <a href="https://github.com/MoonofBridge24/pixletter" target="_blank" rel="noopener">
+          本仓库源码
+        </a>
+      </p>
     </div>
   );
 }

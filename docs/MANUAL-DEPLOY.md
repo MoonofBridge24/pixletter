@@ -52,7 +52,7 @@ pixletter 的全部能力跑在**一个 Cloudflare Pages 实例**上：构建产
 
 ```bash
 # 1. 克隆并安装
-git clone https://github.com/dkamehat/pixletter.git
+git clone https://github.com/MoonofBridge24/pixletter.git
 cd pixletter
 pnpm install
 

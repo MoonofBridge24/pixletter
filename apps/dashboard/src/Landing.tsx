@@ -18,7 +18,7 @@ export function Landing({ onGetStarted }: Props) {
           免费开始使用
         </button>
         <a
-          href="https://github.com/dkamehat/pixletter"
+          href="https://github.com/MoonofBridge24/pixletter"
           target="_blank"
           rel="noopener"
           className="btn"
@@ -76,11 +76,22 @@ export function Landing({ onGetStarted }: Props) {
 数据面板 ←────GET /api/────────────┘`}</pre>
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-        AGPLv3 开源协议 · 作者{' '}
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+        AGPLv3 开源协议
+        <br />
+        原作者{' '}
         <a href="https://x.com/kame__lift" target="_blank" rel="noopener">
           @kame__lift
         </a>
+        （原仓库{' '}
+        <a href="https://github.com/dkamehat/pixletter" target="_blank" rel="noopener">
+          dkamehat/pixletter
+        </a>
+        ）· 本仓库由{' '}
+        <a href="https://github.com/MoonofBridge24" target="_blank" rel="noopener">
+          @MoonofBridge24
+        </a>{' '}
+        修改维护
       </p>
     </div>
   );
