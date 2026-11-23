@@ -7,12 +7,13 @@ import { authFetch } from './auth';
 
 export type TrackingReason = 'active' | 'manual' | 'expired';
 
-/** 停止追踪后需要同步到列表/详情的最新追踪状态 */
+/** 停止/恢复追踪后需要同步到列表/详情的最新追踪状态 */
 export interface TrackingPatch {
   trackingActive: boolean;
   trackingReason: TrackingReason;
   trackingStoppedAt: string | null;
   trackingExpiresAt: string | null;
+  trackingResumedAt?: string | null;
 }
 
 interface EmailSummary {
@@ -31,6 +32,8 @@ interface EmailSummary {
   trackingReason: TrackingReason;
   trackingStoppedAt: string | null;
   trackingExpiresAt: string | null;
+  /** 自動停止後に再開した日時（未再開なら null） */
+  trackingResumedAt?: string | null;
 }
 
 interface EmailDetail {
@@ -44,6 +47,7 @@ interface EmailDetail {
   trackingReason: TrackingReason;
   trackingStoppedAt: string | null;
   trackingExpiresAt: string | null;
+  trackingResumedAt?: string | null;
   opens: Array<{
     id: string;
     userAgent: string | null;
@@ -176,3 +180,13 @@ export async function purgeApiKey(id: string): Promise<void> {
 }
 
 export type { EmailSummary, EmailDetail };
+
+/** 手动重新开启追踪（幂等）。自动过期过的邮件会从当前时间重新计算有效期。 */
+export async function resumeTracking(id: string): Promise<TrackingPatch> {
+  const res = await authFetch(`/api/emails/${id}/resume-tracking`, { method: 'POST' });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((body as { error?: string }).error || `接口错误：${res.status}`);
+  }
+  return body as TrackingPatch;
+}

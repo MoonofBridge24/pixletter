@@ -227,6 +227,7 @@ app.get('/', async (c) => {
       tag: emails.tag,
       sentAt: emails.sentAt,
       trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
       openCount: sql<number>`(SELECT COUNT(*) FROM opens WHERE opens.email_id = emails.id)`,
       clickCount: sql<number>`(SELECT COUNT(*) FROM clicks c JOIN links l ON c.link_id = l.id WHERE l.email_id = emails.id)`,
       firstOpenedAt: sql<number | null>`(SELECT MIN(opened_at) FROM opens WHERE opens.email_id = emails.id)`,
@@ -332,6 +333,7 @@ app.post('/:id/stop-tracking', async (c) => {
       sentAt: emails.sentAt,
       createdAt: emails.createdAt,
       trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
     })
     .from(emails)
     .where(and(eq(emails.id, emailId), eq(emails.tenantId, tenantId)))
@@ -353,6 +355,7 @@ app.post('/:id/stop-tracking', async (c) => {
       sentAt: emails.sentAt,
       createdAt: emails.createdAt,
       trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
     })
     .from(emails)
     .where(eq(emails.id, emailId))
@@ -366,6 +369,77 @@ app.post('/:id/stop-tracking', async (c) => {
     trackingReason: tracking.reason,
     trackingStoppedAt: tracking.stoppedAt,
     trackingExpiresAt: tracking.expiresAt,
+  });
+});
+
+/**
+ * POST /api/emails/:id/resume-tracking
+ * 停止した追跡を手動で再開する。
+ *
+ * - 手動停止だけだった場合: tracking_stopped_at を NULL に戻す（元の期限は変わらない）
+ * - 自動停止（TTL 経過）していた場合: tracking_resumed_at を現在時刻に入れ、
+ *   そこから TTL 日を数え直す（そうしないと再開直後にまた期限切れになる）
+ *
+ * 冪等: すでに追跡中なら何も変更せず現在の状態を返す。
+ */
+app.post('/:id/resume-tracking', async (c) => {
+  const emailId = c.req.param('id');
+  const tenantId = c.get('tenantId');
+  const db = createDb(c.env.DB);
+  const ttlDays = trackingTtlDays(c.env);
+
+  const email = await db
+    .select({
+      id: emails.id,
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
+    })
+    .from(emails)
+    .where(and(eq(emails.id, emailId), eq(emails.tenantId, tenantId)))
+    .get();
+
+  if (!email) {
+    return c.json({ error: 'Email not found' }, 404);
+  }
+
+  const now = new Date();
+  const current = getTrackingState(email, ttlDays, now.getTime());
+  const alreadyExpired =
+    current.expiresAt !== null && now.getTime() >= current.expiresAt.getTime();
+
+  if (email.trackingStoppedAt || alreadyExpired) {
+    await db
+      .update(emails)
+      .set({
+        trackingStoppedAt: null,
+        // 自動停止済みなら「今」を新しい起点にする
+        ...(alreadyExpired ? { trackingResumedAt: now } : {}),
+      })
+      .where(and(eq(emails.id, emailId), eq(emails.tenantId, tenantId)));
+  }
+
+  const updated = await db
+    .select({
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
+    })
+    .from(emails)
+    .where(eq(emails.id, emailId))
+    .get();
+
+  const tracking = getTrackingState(updated ?? email, ttlDays, now.getTime());
+
+  return c.json({
+    id: emailId,
+    trackingActive: tracking.active,
+    trackingReason: tracking.reason,
+    trackingStoppedAt: tracking.stoppedAt,
+    trackingExpiresAt: tracking.expiresAt,
+    trackingResumedAt: updated?.trackingResumedAt ?? null,
   });
 });
 

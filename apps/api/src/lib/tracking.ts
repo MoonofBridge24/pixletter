@@ -3,10 +3,16 @@
  *
  * 停止の条件は 2 つ:
  *   1. 手動停止: emails.tracking_stopped_at が入っている
- *   2. 自動停止: 送信から TRACKING_TTL_DAYS 日（デフォルト 7 日）を経過
+ *   2. 自動停止: 基準日時から TRACKING_TTL_DAYS 日（デフォルト 7 日）を経過
  *
  * 停止中でもピクセルは透明 GIF を返し、リンクは 302 で元 URL に飛ばす。
  * 「記録しない・通知しない」だけで、受信者から見た挙動は一切変わらない。
+ *
+ * 再開（resume）:
+ *   - 手動停止 → tracking_stopped_at を NULL に戻す（元の期限はそのまま）
+ *   - 自動停止済み → tracking_resumed_at を現在時刻に入れ、そこから TTL 日を
+ *     数え直す（そうしないと再開しても即座に期限切れになる）
+ *   期限の基準は max(sentAt, trackingResumedAt) なので、再開した分だけ延びる。
  */
 
 import type { Env } from './types';
@@ -47,14 +53,14 @@ export interface TrackingState {
   reason: TrackingStopReason;
   /** 手動停止日時（未停止なら null） */
   stoppedAt: Date | null;
-  /** 自動停止予定日時（作成日時 + TTL。基準日時が無ければ null） */
+  /** 自動停止予定日時（基準日時 + TTL。基準日時が無ければ null） */
   expiresAt: Date | null;
 }
 
 /**
  * メール 1 件の追跡状態を計算する。
  *
- * @param email sentAt / createdAt / trackingStoppedAt を持つ行（どれも省略可）
+ * @param email sentAt / createdAt / trackingStoppedAt / trackingResumedAt を持つ行
  * @param ttlDays 自動停止までの日数
  * @param now 判定基準時刻（テスト用に差し替え可能）
  */
@@ -63,6 +69,7 @@ export function getTrackingState(
     sentAt?: unknown;
     createdAt?: unknown;
     trackingStoppedAt?: unknown;
+    trackingResumedAt?: unknown;
   },
   ttlDays: number,
   now: number = Date.now(),
@@ -70,7 +77,12 @@ export function getTrackingState(
   const stoppedMs = toMillis(email.trackingStoppedAt);
   const stoppedAt = stoppedMs === null ? null : new Date(stoppedMs);
 
-  const baseMs = toMillis(email.sentAt) ?? toMillis(email.createdAt);
+  const sentMs = toMillis(email.sentAt) ?? toMillis(email.createdAt);
+  const resumedMs = toMillis(email.trackingResumedAt);
+  // 再開していれば「再開日時」を基準にする（元の送信日時のままでは即期限切れになる）
+  const baseMs =
+    resumedMs === null ? sentMs : sentMs === null ? resumedMs : Math.max(sentMs, resumedMs);
+
   const expiresMs =
     baseMs === null ? null : baseMs + Math.max(0, ttlDays) * 24 * 60 * 60 * 1000;
   const expiresAt = expiresMs === null ? null : new Date(expiresMs);

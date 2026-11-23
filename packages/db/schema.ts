@@ -152,6 +152,9 @@ export const emails = sqliteTable(
     // 手動で追跡停止した日時。NULL は未停止。
     // これが入るとピクセル/リダイレクトは通常応答のまま、記録も通知も行わない。
     trackingStoppedAt: integer('tracking_stopped_at', { mode: 'timestamp' }),
+    // 追跡を再開した日時。自動停止（TTL 経過）後の再開で使う。
+    // 有効期限は max(sentAt, trackingResumedAt) + TTL で計算する。
+    trackingResumedAt: integer('tracking_resumed_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .default(sql`(unixepoch())`)
       .notNull(),

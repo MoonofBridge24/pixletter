@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   fetchEmailDetail,
+  resumeTracking,
   stopTracking,
   type EmailDetail,
   type TrackingPatch,
@@ -9,16 +10,16 @@ import {
 interface Props {
   emailId: string;
   onBack: () => void;
-  /** 停止追踪成功后同步列表里的状态（左侧紧凑列表会跟着变） */
-  onTrackingStopped?: (id: string, patch: TrackingPatch) => void;
+  /** 停止/恢复追踪成功后同步列表里的状态（左侧紧凑列表会跟着变） */
+  onTrackingChanged?: (id: string, patch: TrackingPatch) => void;
 }
 
-export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
+export function EmailDetailView({ emailId, onBack, onTrackingChanged }: Props) {
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stopping, setStopping] = useState(false);
+  const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
 
   async function handleStopTracking() {
     if (!email) return;
-    setStopping(true);
+    setPending(true);
     setActionError(null);
     try {
       const res = await stopTracking(email.id);
@@ -58,11 +59,27 @@ export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
         trackingExpiresAt: res.trackingExpiresAt,
       };
       setEmail({ ...email, ...patch });
-      onTrackingStopped?.(email.id, patch);
+      onTrackingChanged?.(email.id, patch);
     } catch (err) {
       setActionError((err as Error).message);
     } finally {
-      setStopping(false);
+      setPending(false);
+    }
+  }
+
+  async function handleResumeTracking() {
+    if (!email) return;
+    setPending(true);
+    setActionError(null);
+    try {
+      const res = await resumeTracking(email.id);
+      const patch: TrackingPatch = res;
+      setEmail({ ...email, ...patch });
+      onTrackingChanged?.(email.id, patch);
+    } catch (err) {
+      setActionError((err as Error).message);
+    } finally {
+      setPending(false);
     }
   }
 
@@ -96,10 +113,10 @@ export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
               <button
                 type="button"
                 className="btn-stop"
-                disabled={stopping}
+                disabled={pending}
                 onClick={handleStopTracking}
               >
-                {stopping ? '停止中...' : '停止追踪'}
+                {pending ? '停止中...' : '停止追踪'}
               </button>
             </>
           ) : (
@@ -113,6 +130,19 @@ export function EmailDetailView({ emailId, onBack, onTrackingStopped }: Props) {
                   : `已于 ${email.trackingExpiresAt ? new Date(email.trackingExpiresAt).toLocaleString('zh-CN') : '—'} 自动停止（发送 7 天后）`}
                 ，邮件仍可正常打开、链接仍可正常点击，但不再记录也不再推送。
               </span>
+              <button
+                type="button"
+                className="btn-resume"
+                disabled={pending}
+                title={
+                  email.trackingReason === 'expired'
+                    ? '恢复后从当前时间重新计算追踪有效期'
+                    : '恢复追踪，继续记录打开与点击'
+                }
+                onClick={handleResumeTracking}
+              >
+                {pending ? '恢复中...' : '恢复追踪'}
+              </button>
             </>
           )}
         </div>

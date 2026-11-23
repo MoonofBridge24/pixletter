@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { stopTracking, type EmailSummary, type TrackingPatch } from './api';
+import { resumeTracking, stopTracking, type EmailSummary, type TrackingPatch } from './api';
 
 interface Props {
   emails: EmailSummary[];
@@ -8,8 +8,8 @@ interface Props {
   search: string;
   onSearchChange: (value: string) => void;
   onSelect: (id: string) => void;
-  /** 停止追踪成功后，把最新状态同步回上层（详情页也复用它） */
-  onStopped: (id: string, patch: TrackingPatch) => void;
+  /** 停止/恢复追踪成功后，把最新状态同步回上层（详情页也复用它） */
+  onTrackingChanged: (id: string, patch: TrackingPatch) => void;
   /** 当前选中的邮件（紧凑列表用来高亮） */
   selectedId?: string | null;
   /** true = 详情页左侧的紧凑列表；false = 完整的邮件历史表格 */
@@ -23,12 +23,12 @@ export function EmailList({
   search,
   onSearchChange,
   onSelect,
-  onStopped,
+  onTrackingChanged,
   selectedId,
   sideBySide = false,
 }: Props) {
   const [actionError, setActionError] = useState<string | null>(null);
-  const [stopping, setStopping] = useState<string[]>([]);
+  const [pending, setPending] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     if (!search) return emails;
@@ -59,10 +59,10 @@ export function EmailList({
     e.stopPropagation();
 
     setActionError(null);
-    setStopping((prev) => [...prev, id]);
+    setPending((prev) => [...prev, id]);
     try {
       const res = await stopTracking(id);
-      onStopped(id, {
+      onTrackingChanged(id, {
         trackingActive: res.trackingActive,
         trackingReason: res.trackingReason,
         trackingStoppedAt: res.trackingStoppedAt,
@@ -71,7 +71,22 @@ export function EmailList({
     } catch (err) {
       setActionError((err as Error).message);
     } finally {
-      setStopping((prev) => prev.filter((x) => x !== id));
+      setPending((prev) => prev.filter((x) => x !== id));
+    }
+  }
+
+  async function handleResumeTracking(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+
+    setActionError(null);
+    setPending((prev) => [...prev, id]);
+    try {
+      const res = await resumeTracking(id);
+      onTrackingChanged(id, res);
+    } catch (err) {
+      setActionError((err as Error).message);
+    } finally {
+      setPending((prev) => prev.filter((x) => x !== id));
     }
   }
 
@@ -185,32 +200,51 @@ export function EmailList({
                 <td>{email.clickCount}</td>
                 <td>{formatDate(email.sentAt)}</td>
                 <td>
-                  {email.trackingActive ? (
-                    <button
-                      type="button"
-                      className="btn-stop"
-                      disabled={stopping.includes(email.id)}
-                      title={
-                        email.trackingExpiresAt
-                          ? `${formatDateTime(email.trackingExpiresAt)} 自动停止追踪`
-                          : undefined
-                      }
-                      onClick={(e) => handleStopTracking(e, email.id)}
-                    >
-                      {stopping.includes(email.id) ? '停止中...' : '停止追踪'}
-                    </button>
-                  ) : (
-                    <span
-                      className="badge badge--stopped"
-                      title={
-                        email.trackingReason === 'manual'
-                          ? `已于 ${formatDateTime(email.trackingStoppedAt)} 手动停止`
-                          : `已于 ${formatDateTime(email.trackingExpiresAt)} 自动停止（发送 7 天后）`
-                      }
-                    >
-                      {email.trackingReason === 'manual' ? '已停止' : '已过期'}
-                    </span>
-                  )}
+                  <div className="tracking-cell">
+                    {email.trackingActive ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-stop"
+                          disabled={pending.includes(email.id)}
+                          title={
+                            email.trackingExpiresAt
+                              ? `${formatDateTime(email.trackingExpiresAt)} 自动停止追踪`
+                              : undefined
+                          }
+                          onClick={(e) => handleStopTracking(e, email.id)}
+                        >
+                          {pending.includes(email.id) ? '停止中...' : '停止追踪'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className="badge badge--stopped"
+                          title={
+                            email.trackingReason === 'manual'
+                              ? `已于 ${formatDateTime(email.trackingStoppedAt)} 手动停止`
+                              : `已于 ${formatDateTime(email.trackingExpiresAt)} 自动停止（发送 7 天后）`
+                          }
+                        >
+                          {email.trackingReason === 'manual' ? '已停止' : '已过期'}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-resume"
+                          disabled={pending.includes(email.id)}
+                          title={
+                            email.trackingReason === 'expired'
+                              ? '恢复后从当前时间重新计算追踪有效期'
+                              : '恢复追踪，继续记录打开与点击'
+                          }
+                          onClick={(e) => handleResumeTracking(e, email.id)}
+                        >
+                          {pending.includes(email.id) ? '恢复中...' : '恢复追踪'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

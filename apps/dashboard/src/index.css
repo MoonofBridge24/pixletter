@@ -194,6 +194,37 @@ a {
   margin-bottom: 16px;
 }
 
+/* 表格里的追踪状态 + 操作 */
+.tracking-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 恢复追踪按钮（停止的反向操作） */
+.btn-resume {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid #b7dfba;
+  border-radius: 6px;
+  background: #f1f8f2;
+  color: var(--green);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-resume:hover:not(:disabled) {
+  background: #e3f3e5;
+  border-color: #9ed3a3;
+}
+
+.btn-resume:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .tracking-hint {
   font-size: 12px;
   color: var(--text-secondary);

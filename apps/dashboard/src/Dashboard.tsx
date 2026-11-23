@@ -10,7 +10,7 @@ import { fetchEmails, type EmailSummary, type TrackingPatch } from './api';
  * - 选中邮件：左侧紧凑列表（方便切换）+ 右侧详情
  *
  * 数据放在这里而不是 EmailList 里，切换布局时不会重新请求、
- * 也不会丢失搜索条件和停止追踪后的最新状态。
+ * 也不会丢失搜索条件和停止/恢复追踪后的最新状态。
  */
 export function Dashboard() {
   const [emails, setEmails] = useState<EmailSummary[]>([]);
@@ -26,7 +26,7 @@ export function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  function handleStopped(id: string, patch: TrackingPatch) {
+  function handleTrackingChanged(id: string, patch: TrackingPatch) {
     setEmails((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   }
 
@@ -39,7 +39,7 @@ export function Dashboard() {
         search={search}
         onSearchChange={setSearch}
         onSelect={setSelectedId}
-        onStopped={handleStopped}
+        onTrackingChanged={handleTrackingChanged}
       />
     );
   }
@@ -54,7 +54,7 @@ export function Dashboard() {
           search={search}
           onSearchChange={setSearch}
           onSelect={setSelectedId}
-          onStopped={handleStopped}
+          onTrackingChanged={handleTrackingChanged}
           selectedId={selectedId}
           sideBySide
         />
@@ -63,7 +63,7 @@ export function Dashboard() {
         <EmailDetailView
           emailId={selectedId}
           onBack={() => setSelectedId(null)}
-          onTrackingStopped={handleStopped}
+          onTrackingChanged={handleTrackingChanged}
         />
       </main>
     </div>

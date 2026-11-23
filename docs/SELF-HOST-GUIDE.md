@@ -53,6 +53,9 @@ npx wrangler d1 execute pixletter-db --remote \
 npx wrangler d1 execute pixletter-db --remote \
   --file=packages/db/migrations/0003_tracking_stopped_at.sql
 
+npx wrangler d1 execute pixletter-db --remote \
+  --file=packages/db/migrations/0004_tracking_resumed_at.sql
+
 # 5. Seed self tenant
 npx wrangler d1 execute pixletter-db --remote \
   --command="INSERT OR IGNORE INTO tenants (id, name, plan, monthly_email_limit, reset_at) VALUES ('self', 'Self', 'self', 100000, unixepoch() + 2592000);"

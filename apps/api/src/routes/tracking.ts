@@ -39,6 +39,7 @@ async function handlePixel(c: any) {
       sentAt: emails.sentAt,
       createdAt: emails.createdAt,
       trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
     })
     .from(emails)
     .where(eq(emails.trackingId, trackingId))
@@ -133,6 +134,7 @@ app.get('/r/:id', async (c) => {
       sentAt: emails.sentAt,
       createdAt: emails.createdAt,
       trackingStoppedAt: emails.trackingStoppedAt,
+      trackingResumedAt: emails.trackingResumedAt,
     })
     .from(emails)
     .where(eq(emails.id, link.emailId))

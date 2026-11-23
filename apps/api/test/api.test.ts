@@ -50,7 +50,7 @@ async function applyMigrations(db: D1Database) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY, name TEXT, plan TEXT NOT NULL DEFAULT 'self', monthly_email_limit INTEGER NOT NULL DEFAULT 500, monthly_email_count INTEGER NOT NULL DEFAULT 0, reset_at INTEGER NOT NULL DEFAULT (unixepoch() + 2592000), is_suspended INTEGER DEFAULT 0, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email TEXT NOT NULL UNIQUE, name TEXT, oauth_provider TEXT, oauth_id TEXT, serverchan_sendkey TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()), updated_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
-    `CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL, tracking_id TEXT NOT NULL UNIQUE, subject TEXT, recipient TEXT NOT NULL, recipient_name TEXT, gmail_message_id TEXT, thread_id TEXT, tag TEXT, sent_at INTEGER NOT NULL DEFAULT (unixepoch()), tracking_stopped_at INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
+    `CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, user_id TEXT NOT NULL, tracking_id TEXT NOT NULL UNIQUE, subject TEXT, recipient TEXT NOT NULL, recipient_name TEXT, gmail_message_id TEXT, thread_id TEXT, tag TEXT, sent_at INTEGER NOT NULL DEFAULT (unixepoch()), tracking_stopped_at INTEGER, tracking_resumed_at INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS opens (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, user_agent TEXT, ip_hash TEXT, is_gmail_proxy INTEGER DEFAULT 0, opened_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE, tracking_id TEXT NOT NULL UNIQUE, original_url TEXT NOT NULL, label TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
     `CREATE TABLE IF NOT EXISTS clicks (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, link_id TEXT NOT NULL REFERENCES links(id) ON DELETE CASCADE, user_agent TEXT, ip_hash TEXT, clicked_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
@@ -324,6 +324,109 @@ describe('pixletter API', () => {
       `SELECT COUNT(*) AS n FROM clicks WHERE link_id IN (SELECT id FROM links WHERE email_id = ?)`
     ).bind(email.id).first<{ n: number }>();
     expect(clickRow?.n).toBe(0);
+  });
+
+  // 手動停止 → 再開
+  it('POST /api/emails/:id/resume-tracking re-enables a manually stopped email', async () => {
+    const email = await createTestEmail('resume-manual@example.com', {
+      urls: [{ url: 'https://resume-target.com' }],
+    });
+    await env.DB.prepare(`UPDATE emails SET created_at = unixepoch() - 61 WHERE id = ?`)
+      .bind(email.id).run();
+
+    const stopRes = await request(`/api/emails/${email.id}/stop-tracking`, { method: 'POST' });
+    expect(stopRes.status).toBe(200);
+
+    // 停止中は記録されない
+    await request(`/pixel/${email.trackingId}.gif`);
+    const stoppedOpens = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(stoppedOpens?.n).toBe(0);
+
+    // 再開
+    const resumeRes = await request(`/api/emails/${email.id}/resume-tracking`, { method: 'POST' });
+    expect(resumeRes.status).toBe(200);
+    const resumed = await resumeRes.json<{
+      trackingActive: boolean;
+      trackingReason: string;
+      trackingStoppedAt: string | null;
+      trackingExpiresAt: string | null;
+    }>();
+    expect(resumed.trackingActive).toBe(true);
+    expect(resumed.trackingReason).toBe('active');
+    expect(resumed.trackingStoppedAt).toBeNull();
+    // 手動停止の再開では元の期限（送信 + 7 日）を維持する
+    expect(resumed.trackingExpiresAt).not.toBeNull();
+
+    // 再開後は開封・クリックがまた記録される
+    await request(`/pixel/${email.trackingId}.gif`);
+    const openRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(openRow?.n).toBe(1);
+
+    const linkId = email.links[0]?.trackingUrl.split('/r/')[1] ?? '';
+    const redirectRes = await request(`/r/${linkId}`, { redirect: 'manual' });
+    expect(redirectRes.status).toBe(302);
+    const clickRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM clicks WHERE link_id IN (SELECT id FROM links WHERE email_id = ?)`
+    ).bind(email.id).first<{ n: number }>();
+    expect(clickRow?.n).toBe(1);
+  });
+
+  // 自動停止（TTL 経過）→ 再開（期限を今から数え直す）
+  it('POST /api/emails/:id/resume-tracking renews an expired tracking window', async () => {
+    const email = await createTestEmail('resume-expired@example.com');
+    await env.DB.prepare(
+      `UPDATE emails SET sent_at = unixepoch() - 8 * 86400, created_at = unixepoch() - 8 * 86400 WHERE id = ?`
+    ).bind(email.id).run();
+
+    const resumeRes = await request(`/api/emails/${email.id}/resume-tracking`, { method: 'POST' });
+    expect(resumeRes.status).toBe(200);
+    const resumed = await resumeRes.json<{
+      trackingActive: boolean;
+      trackingReason: string;
+      trackingExpiresAt: string | null;
+      trackingResumedAt: string | null;
+    }>();
+    expect(resumed.trackingActive).toBe(true);
+    expect(resumed.trackingReason).toBe('active');
+    expect(resumed.trackingResumedAt).not.toBeNull();
+    // 新しい期限は「今 + 7 日」なので未来
+    expect(new Date(resumed.trackingExpiresAt ?? 0).getTime()).toBeGreaterThan(Date.now());
+
+    // 再開後は記録される
+    await request(`/pixel/${email.trackingId}.gif`);
+    const openRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM opens WHERE email_id = ?`
+    ).bind(email.id).first<{ n: number }>();
+    expect(openRow?.n).toBe(1);
+
+    // 一覧でも active に戻る
+    const list = await (await request('/api/emails?limit=100')).json<{
+      data: Array<{ id: string; trackingActive: boolean; trackingReason: string }>;
+    }>();
+    const row = list.data.find((e) => e.id === email.id);
+    expect(row?.trackingActive).toBe(true);
+    expect(row?.trackingReason).toBe('active');
+  });
+
+  it('POST /api/emails/:id/resume-tracking is idempotent and 404s for unknown email', async () => {
+    const email = await createTestEmail('resume-idem@example.com');
+
+    const first = await request(`/api/emails/${email.id}/resume-tracking`, { method: 'POST' });
+    expect(first.status).toBe(200);
+    const firstBody = await first.json<{ trackingActive: boolean; trackingResumedAt: string | null }>();
+    expect(firstBody.trackingActive).toBe(true);
+    expect(firstBody.trackingResumedAt).toBeNull();
+
+    const second = await request(`/api/emails/${email.id}/resume-tracking`, { method: 'POST' });
+    expect(second.status).toBe(200);
+    expect((await second.json<{ trackingActive: boolean }>()).trackingActive).toBe(true);
+
+    const missing = await request('/api/emails/nonexistent/resume-tracking', { method: 'POST' });
+    expect(missing.status).toBe(404);
   });
 
   // Notification settings (SendKey)
