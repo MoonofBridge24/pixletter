@@ -25,7 +25,7 @@ export async function sendTelemetryPing(env: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event: 'ping',
-        version: '0.3.0',
+        version: '0.4.1',
         mode: env.HOSTING_MODE || 'self',
         ts: Date.now(),
       }),

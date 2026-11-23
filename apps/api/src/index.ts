@@ -167,7 +167,7 @@ app.post('/webhook/stripe', async (c) => {
 app.get('/health', (c) =>
   c.json({
     status: 'ok',
-    version: '0.3.0',
+    version: '0.4.1',
     mode: c.env.HOSTING_MODE || 'self',
   }),
 );

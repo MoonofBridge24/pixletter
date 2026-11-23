@@ -109,7 +109,7 @@ describe('pixletter API', () => {
     expect(res.status).toBe(200);
     const body = await res.json<{ status: string; version: string }>();
     expect(body.status).toBe('ok');
-    expect(body.version).toBe('0.3.0');
+    expect(body.version).toBe('0.4.1');
   });
 
   it('returns X-Request-ID and X-Response-Time headers', async () => {
